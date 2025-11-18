@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- SECTION 1: HTML DOCUMENT HEADER -->
+    <!-- This section handles: Document metadata and external resources -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - ClassCart</title>
+    
+    <!-- SECTION 2: VUE 2.7.8 CDN IMPLEMENTATION -->
+    <!-- This section handles: Loading Vue 2.7.8 framework -->
+    <!-- Using Vue 2.7.8 (not Vue 3) as required -->
+    <!-- CDN approach avoids build tools and keeps it simple -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.7.8/dist/vue.js"></script>
+    
+    <!-- SECTION 3: CSS STYLING -->
+    <!-- This section handles: External stylesheet reference -->
+    <!-- Links to style.css for consistent styling across pages -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- SECTION 4: VUE APPLICATION ROOT -->
+    <!-- This section handles: Vue instance mounting point -->
+    <!-- Vue 2 mounts to this div with id="app" -->
+    <!-- This is the root element for our Vue application -->
+    <div id="app">
+        
+        <!-- SECTION 5: APPLICATION HEADER -->
+        <!-- This section handles: Page title and checkout indicator -->
+        <!-- Simple header showing we're on the checkout page -->
+        <header>
+            <h1>ClassCart</h1>
+            <div class="cart-info">
+                Checkout
+            </div>
+        </header>
+
+        <main>
+            <!-- SECTION 6: CHECKOUT SECTION -->
+            <!-- This section handles: Complete checkout process -->
+            <!-- Contains form, order summary, and action buttons -->
+            <section class="checkout">
+                <h2>Checkout</h2>
+                
+                <!-- SECTION 6A: CHECKOUT FORM -->
+                <!-- This section handles: Customer information collection -->
+                <!-- v-model binds form inputs to Vue data -->
+                <!-- Each input is required for form validation -->
+                <div class="checkout-form">
+                    
+                    <!-- SECTION 6A1: CUSTOMER NAME INPUT -->
+                    <!-- This section handles: Full name collection -->
+                    <!-- v-model="checkoutForm.name" binds input to Vue data -->
+                    <!-- required attribute ensures field is filled -->
+                    <div class="form-group">
+                        <label for="name">Full Name:</label>
+                        <input v-model="checkoutForm.name" type="text" id="name" required>
+                    </div>
+                    
+                    <!-- SECTION 6A2: EMAIL INPUT -->
+                    <!-- This section handles: Email address collection -->
+                    <!-- type="email" provides basic email validation -->
+                    <!-- v-model="checkoutForm.email" binds input to Vue data -->
+                    <div class="form-group">
+                        <label for="email">Email:</label>
+                        <input v-model="checkoutForm.email" type="email" id="email" required>
+                    </div>
+                    
+                    <!-- SECTION 6A3: PHONE NUMBER INPUT -->
+                    <!-- This section handles: Phone number collection -->
+                    <!-- type="tel" provides mobile-friendly keyboard -->
+                    <!-- v-model="checkoutForm.phone" binds input to Vue data -->
+                    <div class="form-group">
+                        <label for="phone">Phone Number:</label>
+                        <input v-model="checkoutForm.phone" type="tel" id="phone" required>
+                    </div>
+                    
+                    <!-- SECTION 6A4: ADDRESS INPUT -->
+                    <!-- This section handles: Delivery address collection -->
+                    <!-- textarea allows multi-line address input -->
+                    <!-- v-model="checkoutForm.address" binds input to Vue data -->
+                    <div class="form-group">
+                        <label for="address">Address:</label>
+                        <textarea v-model="checkoutForm.address" id="address" rows="3" required></textarea>
+                    </div>
+                    
+                    <!-- SECTION 6A5: PAYMENT METHOD SELECTION -->
+                    <!-- This section handles: Payment method selection -->
+                    <!-- select dropdown provides payment options -->
+                    <!-- v-model="checkoutForm.payment" binds selection to Vue data -->
+                    <div class="form-group">
+                        <label for="payment">Payment Method:</label>
+                        <select v-model="checkoutForm.payment" id="payment" required>
+                            <option value="">Select Payment Method</option>
+                            <option value="credit">Credit Card</option>
+                            <option value="debit">Debit Card</option>
+                            <option value="paypal">PayPal</option>
+                            <option value="bank">Bank Transfer</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- SECTION 6B: ORDER SUMMARY -->
+                <!-- This section handles: Displaying cart contents and total -->
+                <!-- v-for="item in cart" loops through cart items -->
+                <!-- {{ item.name }} and {{ item.price }} display item details -->
+                <!-- {{ total }} displays computed total from Vue instance -->
+                <div class="order-summary">
+                    <h3>Order Summary</h3>
+                    
+                    <!-- SECTION 6B1: CART ITEMS DISPLAY -->
+                    <!-- This section handles: Showing each item in cart -->
+                    <!-- v-for="item in cart" creates a div for each cart item -->
+                    <!-- :key="item.id" provides unique key for Vue's virtual DOM -->
+                    <div v-for="item in cart" :key="item.id" class="order-item">
+                        <span>{{ item.name }}</span>
+                        <span>${{ item.price }}</span>
+                    </div>
+                    
+                    <!-- SECTION 6B2: ORDER TOTAL -->
+                    <!-- This section handles: Displaying total price -->
+                    <!-- {{ total }} displays computed total from Vue instance -->
+                    <!-- total is calculated in checkout.js computed property -->
+                    <div class="order-total">
+                        <strong>Total: £{{ total }}</strong>
+                    </div>
+                </div>
+                
+                <!-- SECTION 6C: CHECKOUT ACTION BUTTONS -->
+                <!-- This section handles: Navigation and order completion -->
+                <!-- @click="goBackToCart" navigates back to cart page -->
+                <!-- @click="completeOrder" processes the checkout -->
+                <div class="checkout-actions">
+                    <button @click="goBackToCart" class="back-btn">Back to Cart</button>
+                    <button @click="completeOrder" class="complete-btn">Complete Order</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- SECTION 7: VUE JAVASCRIPT IMPLEMENTATION -->
+    <!-- This section handles: Loading Vue 2 application logic -->
+    <!-- checkout.js contains the Vue instance with Options API -->
+    <!-- Uses data, computed, methods - core Vue 2 features -->
+    <!-- No advanced features like watchers, emits, props, etc. -->
+    <script src="checkout.js"></script>
+</body>
+</html>

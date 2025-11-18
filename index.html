@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- SECTION 1: HTML DOCUMENT HEADER -->
+    <!-- This section handles: Document metadata and external resources -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClassCart - Simple Shopping Cart</title>
+    
+    <!-- SECTION 2: VUE 2.7.8 CDN IMPLEMENTATION -->
+    <!-- This section handles: Loading Vue 2.7.8 framework -->
+    <!-- Using Vue 2.7.8 (not Vue 3) as required -->
+    <!-- CDN approach avoids build tools and keeps it simple -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.7.8/dist/vue.js"></script>
+    
+    <!-- SECTION 3: CSS STYLING -->
+    <!-- This section handles: External stylesheet reference -->
+    <!-- Removed all CSS to keep it simple and defensible -->
+    <!-- Uses default browser styling -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"><!-- Font Awesome for cart icon -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css" />
+   <link rel="stylesheet" href="style.css">
+
+
+
+</head>
+<body class="body">
+    <!-- SECTION 4: VUE APPLICATION ROOT -->
+    <!-- This section handles: Vue instance mounting point -->
+    <!-- Vue 2 mounts to this div with id="app" -->
+    <!-- This is the root element for our Vue application -->
+    <div id="app">
+        
+        <!-- SECTION 5: APPLICATION HEADER -->
+        <!-- This section handles: Page title and cart counter display -->
+        <!-- Vue 2 text interpolation using {{ }} syntax -->
+        <!-- cart.length is reactive - updates automatically when cart changes -->
+        <header class="header">
+            <h1>ClassCart Example</h1>
+            <div class="cart-info">
+                <a href="cart.html" class="cart-link">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                    {{ cart.length }}
+                </a>
+            </div>
+        </header>
+
+        <main>
+            <!-- SECTION 5.5: SEARCH AND SORT FUNCTIONALITY -->
+            <!-- This section handles: Product search input and sorting -->
+            <!-- v-model="searchQuery" binds input to Vue data -->
+            <!-- v-model="sortBy" binds dropdown to Vue data -->
+            <div class="search-container">
+                <input 
+                    type="text" 
+                    v-model="searchQuery" 
+                    placeholder="Search products..." 
+                    class="search-input"
+                >
+                <select v-model="sortBy" class="sort-dropdown">
+                    <option value="">Sort by...</option>
+                    <option value="name">Sort by Name</option>
+                    <option value="price">Sort by Price</option>
+                </select>
+            </div>
+          
+            <!-- SECTION 6: PRODUCT CATALOG -->
+            <!-- This section handles: Displaying all available educational lessons -->
+            <!-- Shows 10 different academic subjects with details -->
+            <section class="products">
+                <h2>Available Products</h2>
+                
+                <!-- SECTION 6A: PRODUCT LIST RENDERING -->
+                <!-- This section handles: Dynamic product list generation -->
+                <!-- v-for="product in filteredProducts" loops through filtered products -->
+                <!-- :key="product.id" provides unique key for Vue's virtual DOM -->
+                <!-- This is list rendering - core Vue 2 feature -->
+                <div class="product-list">
+                    <div v-for="product in filteredProducts" :key="product.id" class="product">
+                        
+                        <!-- SECTION 6B: PRODUCT INFORMATION DISPLAY -->
+                        <!-- This section handles: Showing product details -->
+                        <!-- {{ product.name }} displays product name from Vue data -->
+                        <!-- {{ product.description }} displays product description -->
+                        <!-- {{ product.price }} displays product price -->
+                        <!-- All are reactive - update when data changes -->
+                        <h3>{{ product.name }}</h3>
+                        <p>Location: {{ product.Location}}</p>
+                        <p class="price">Price: {{ product.price }}</p>
+                        <p class="spaces">Spaces Available: {{ product.spaces}}</p>
+
+                        <!-- SECTION 6C: QUANTITY SELECTION -->
+                        <!-- This section handles: Quantity input for purchasing multiple spaces -->
+                        <!-- v-model="product.quantity" binds quantity input to product data -->
+                        <!-- :max="product.spaces" limits quantity to available spaces -->
+                        <div class="quantity-section">
+                            <label for="quantity-{{ product.id }}">Quantity:</label>
+                            <input 
+                                type="number" 
+                                :id="'quantity-' + product.id"
+                                v-model.number="product.quantity" 
+                                :min="1" 
+                                :max="product.spaces"
+                                class="quantity-input"
+                            >
+                        </div>
+
+                        <!-- SECTION 6D: ADD TO CART FUNCTIONALITY -->
+                        <!-- This section handles: Adding products to shopping cart with quantities -->
+                        <!-- @click="addToCart(product)" handles click events -->
+                        <!-- :disabled binds disabled attribute based on spaces and cart status -->
+                        <!-- Dynamic button text based on product availability and cart status -->
+                        <!-- This demonstrates event handling and conditional rendering -->
+                        <button class="button" @click="addToCart(product)" :disabled="product.spaces === 0 || product.quantity > product.spaces">
+                            {{ product.spaces === 0 ? 'Out of Stock' : (product.inCart ? 'In Cart' : 'Add to Cart') }}
+                        </button>
+                          
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- SECTION 9: VUE JAVASCRIPT IMPLEMENTATION -->
+    <!-- This section handles: Loading Vue 2 application logic -->
+    <!-- app.js contains the Vue instance with Options API -->
+    <!-- Uses data, computed, methods - core Vue 2 features -->
+    <!-- No advanced features like watchers, emits, props, etc. -->
+    <script src="app.js"></script>
+</body>
+</html>

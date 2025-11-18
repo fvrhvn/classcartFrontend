@@ -1,0 +1,384 @@
+@media (max-width: 768px) {
+  .product-list {
+    grid-template-columns: 1fr;
+  } 
+}
+
+.header{
+    font-family: 'Poppins', sans-serif;
+    font-weight: 900;
+    color: #3E2723;
+    }
+
+    body{
+        color: #F9F5EB;
+        background-color:#F9F5EB;
+        margin: 0;
+        padding: 0%;
+        text-align: center;
+    }
+   /* product area*/
+    .products{
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 700;
+        color: #2E2E2E ;
+        text-align: center;
+    }
+
+    .product-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+    .product{
+        background-color: #fff;
+        border-bottom: 1px solid #3E2723;
+        border-radius: 10px;
+        padding:  1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .product h3 {
+        font-family: 'Montserrat', sans-serif;
+        color: #3E2723;
+        margin-bottom: 0.5rem;
+    }
+
+    .button{
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        padding: 0.6rem 1rem
+    }
+    
+    .cart-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;          /* space between icon and text */
+        font-weight: 600;
+      }
+      
+      .cart-info i {
+        font-size: 1.3rem;     /* slightly bigger for visibility */
+        color: #3E2723; 
+               /* matches your dark brown theme */
+      }
+       .search-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+        font-family: 'Montserrat', sans-serif;
+       }
+       .search-input {
+        width: 100%;
+        font-family: 'Montserrat', sans-serif;
+        max-width: 300px;
+        padding: 0.5rem;
+        border-radius: 6px;
+       }
+       .sort-dropdown {
+        font-family: 'Montserrat', sans-serif;
+        width: 100%;
+        max-width: 200px;
+        padding: 0.5rem;
+        border-radius: 6px;
+       }
+       .sort-dropdown option {
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 600;
+        color: #2E2E2E;
+       }
+      
+/* SECTION: CHECKOUT FORM STYLING */
+/* This section handles: Minimalistic checkout form design */
+/* Clean, modern styling with consistent typography and spacing */
+
+.checkout-form {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-top: 2rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.checkout-form h3 {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    color: #3E2723;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-size: 1.5rem;
+}
+
+/* Minimalistic input styling */
+.minimal-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid #E0E0E0;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    color: #3E2723;
+    background-color: #FAFAFA;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.minimal-input:focus {
+    outline: none;
+    border-color: #3E2723;
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(62, 39, 35, 0.1);
+}
+
+.minimal-input::placeholder {
+    color: #9E9E9E;
+    font-weight: 400;
+}
+
+/* Minimalistic textarea styling */
+.minimal-textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid #E0E0E0;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    color: #3E2723;
+    background-color: #FAFAFA;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+    resize: vertical;
+    min-height: 80px;
+    box-sizing: border-box;
+}
+
+.minimal-textarea:focus {
+    outline: none;
+    border-color: #3E2723;
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(62, 39, 35, 0.1);
+}
+
+.minimal-textarea::placeholder {
+    color: #9E9E9E;
+    font-weight: 400;
+}
+
+/* Minimalistic button styling */
+.minimal-btn {
+    width: 100%;
+    padding: 0.875rem 1.5rem;
+    background-color: #3E2723;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+}
+
+.minimal-btn:hover:not(:disabled) {
+    background-color: #2E1B17;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(62, 39, 35, 0.3);
+}
+
+.minimal-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.minimal-btn:disabled {
+    background-color: #BDBDBD;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Error message styling */
+.error {
+    display: block;
+    color: #D32F2F;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    margin-top: -0.25rem;
+}
+
+/* Cart page specific styling */
+.cart {
+    font-family: 'Montserrat', sans-serif;
+    color: #2E2E2E;
+    text-align: center;
+}
+
+.cart h2 {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    color: #3E2723;
+    margin-bottom: 1.5rem;
+    font-size: 1.75rem;
+}
+
+.total {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 2rem auto;
+    max-width: 300px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.total h3 {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    color: #3E2723;
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+/* Navigation button styling */
+.nav-btn {
+    background-color: #3E2723;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 2rem;
+}
+
+.nav-btn:hover {
+    background-color: #2E1B17;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(62, 39, 35, 0.3);
+}
+
+.nav-btn i {
+    margin-right: 0.5rem;
+}
+
+/* Empty cart state styling */
+.empty-cart {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    margin: 2rem auto;
+    max-width: 400px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.empty-cart h2 {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    color: #3E2723;
+    margin-bottom: 1rem;
+}
+
+.empty-cart p {
+    font-family: 'Montserrat', sans-serif;
+    color: #666;
+    margin-bottom: 1.5rem;
+}
+
+/* Success message styling */
+.success-message {
+    background-color: #E8F5E8;
+    border: 2px solid #4CAF50;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+    text-align: center;
+}
+
+.success-message h3 {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    color: #2E7D32;
+    margin-bottom: 1rem;
+}
+
+.success-message p {
+    font-family: 'Montserrat', sans-serif;
+    color: #2E7D32;
+    margin-bottom: 0.5rem;
+}
+
+/* Cart link styling */
+.cart-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: opacity 0.3s ease;
+}
+
+.cart-link:hover {
+    opacity: 0.8;
+}
+
+/* Quantity input styling */
+.quantity-section {
+    margin: 1rem 0;
+}
+
+.quantity-section label {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    color: #3E2723;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.quantity-input {
+    width: 80px;
+    padding: 0.5rem;
+    border: 2px solid #E0E0E0;
+    border-radius: 6px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    color: #3E2723;
+    background-color: #FAFAFA;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.quantity-input:focus {
+    outline: none;
+    border-color: #3E2723;
+    background-color: #fff;
+}
+
+/* Responsive design improvements */
+@media (max-width: 768px) {
+    .checkout-form {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+    
+    .product-list {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .product {
+        padding: 1rem;
+    }
+    
+    .total {
+        margin: 1rem;
+        padding: 1rem;
+    }
+}
