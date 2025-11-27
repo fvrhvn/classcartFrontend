@@ -31,7 +31,6 @@
     <!-- This section handles: Vue instance mounting point -->
     <!-- Vue 2 mounts to this div with id="app" -->
     <!-- This is the root element for our Vue application -->
-    <!-- Page structure scaffolded for all future sections -->
     <div id="app">
         
         <!-- SECTION 5: APPLICATION HEADER -->
@@ -53,7 +52,6 @@
             <!-- This section handles: Product search input and sorting -->
             <!-- v-model="searchQuery" binds input to Vue data -->
             <!-- v-model="sortBy" binds dropdown to Vue data -->
-            <!-- Search input + Sort dropdown are now fully implemented -->
             <div class="search-container">
                 <input 
                     type="text" 
@@ -63,15 +61,18 @@
                 >
                 <select v-model="sortBy" class="sort-dropdown">
                     <option value="">Sort by...</option>
-                    <option value="name">Sort by Name</option>
-                    <option value="price">Sort by Price</option>
+                    <option value="name">Sort by Name (A-Z)</option>
+                    <option value="name-desc">Sort by Name (Z-A)</option>
+                    <option value="price">Sort by Price (Low to High)</option>
+                    <option value="price-desc">Sort by Price (High to Low)</option>
+                    <option value="location">Sort by Location (A-Z)</option>
+                    <option value="location-desc">Sort by Location (Z-A)</option>
                 </select>
             </div>
           
             <!-- SECTION 6: PRODUCT CATALOG -->
             <!-- This section handles: Displaying all available educational lessons -->
             <!-- Shows 10 different academic subjects with details -->
-            <!-- Created product catalog section -->
             <section class="products">
                 <h2>Available Products</h2>
                 
@@ -83,13 +84,19 @@
                 <div class="product-list">
                     <div v-for="product in filteredProducts" :key="product.id" class="product">
                         
+                        <!-- Product image preview -->
+                        <img 
+                            :src="product.image" 
+                            :alt="product.name + ' lesson image'" 
+                            class="product-image"
+                        >
+                        
                         <!-- SECTION 6B: PRODUCT INFORMATION DISPLAY -->
                         <!-- This section handles: Showing product details -->
                         <!-- {{ product.name }} displays product name from Vue data -->
                         <!-- {{ product.description }} displays product description -->
                         <!-- {{ product.price }} displays product price -->
                         <!-- All are reactive - update when data changes -->
-                        <!-- Added products to display details to show price, name, location -->
                         <h3>{{ product.name }}</h3>
                         <p>Location: {{ product.Location}}</p>
                         <p class="price">Price: {{ product.price }}</p>

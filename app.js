@@ -28,6 +28,7 @@ new Vue({
                 id: 1,
                 name: 'Mobile App Development',
                 Location:'Birmingham',
+                image: 'assets/logo-mobile.svg',
                 price: "£88.99",
                 spaces: 10,
                 quantity: 1,
@@ -37,6 +38,7 @@ new Vue({
                 id: 2,
                 name: 'Artificial Intelligence & Machine Learning',
                 Location:'West-Ham',
+                image: 'assets/logo-ai-ml.svg',
                 price: "£149.99",
                 spaces: 8,
                 quantity: 1,
@@ -46,6 +48,7 @@ new Vue({
                 id: 3,
                 name: 'Cloud Computing with AWS or Azure Lab Course',
                 Location:'Newcastle',
+                image: 'assets/logo-cloud.svg',
                 price: "£99.99",
                 spaces: 5,
                 quantity: 1,
@@ -55,6 +58,7 @@ new Vue({
                 id: 4,
                 name: 'Cybersecurity Basics',
                 Location:'Bristol',
+                image: 'assets/logo-cybersecurity.svg',
                 price: "£250",
                 spaces: 5,
                 quantity: 1,
@@ -64,6 +68,7 @@ new Vue({
                 id: 5,
                 name: 'UI/UX Design Principles',
                 Location:'Brentford',
+                image: 'assets/logo-figma.svg',
                 price: "£220",
                 spaces: 5,
                 quantity: 1,
@@ -73,6 +78,7 @@ new Vue({
                 id: 6,
                 name: 'Project Management',
                 Location:'Manchester',
+                image: 'assets/logo-jira.svg',
                 price: "£250",
                 spaces: 5,
                 quantity: 1,
@@ -82,6 +88,7 @@ new Vue({
                 id: 7,
                 name: 'Computer Science',
                 Location:'Villa-park',
+                image: 'assets/logo-compsci.svg',
                 price: "£200",
                 spaces: 10,
                 quantity: 1,
@@ -91,6 +98,7 @@ new Vue({
                 id: 8,
                 name: 'Database Design & SQL',
                 Location:'Leicester',
+                image: 'assets/logo-database.svg',
                 price: "£199",
                 spaces: 7,
                 quantity: 1,
@@ -100,6 +108,7 @@ new Vue({
                 id: 9,
                 name: 'Backend Development with Node.js',
                 Location:'Norwich',
+                image: 'assets/logo-node.svg',
                 price: "£209",
                 spaces: 5,
                 quantity: 1,
@@ -109,6 +118,7 @@ new Vue({
                 id: 10,
                 name: 'Python Programming',
                 Location:'Liverpool',
+                image: 'assets/logo-python.svg',
                 price: "£150",
                 spaces: 12,
                 quantity: 1,
@@ -173,12 +183,29 @@ new Vue({
             if (this.sortBy) {
                 filtered = [...filtered].sort((a, b) => {
                     if (this.sortBy === 'name') {
+                        // Sort by name ascending (A-Z)
                         return a.name.localeCompare(b.name);
+                    } else if (this.sortBy === 'name-desc') {
+                        // Sort by name descending (Z-A)
+                        return b.name.localeCompare(a.name);
                     } else if (this.sortBy === 'price') {
-                        // Extract numeric value from price string (e.g., "$299" -> 299)
-                        const priceA = parseInt(a.price.replace('$', ''));
-                        const priceB = parseInt(b.price.replace('$', ''));
+                        // Sort by price ascending (Low to High)
+                        // Extract numeric value from price string (e.g., "£299" -> 299)
+                        const priceA = parseFloat(a.price.replace('£', ''));
+                        const priceB = parseFloat(b.price.replace('£', ''));
                         return priceA - priceB;
+                    } else if (this.sortBy === 'price-desc') {
+                        // Sort by price descending (High to Low)
+                        // Extract numeric value from price string (e.g., "£299" -> 299)
+                        const priceA = parseFloat(a.price.replace('£', ''));
+                        const priceB = parseFloat(b.price.replace('£', ''));
+                        return priceB - priceA;
+                    } else if (this.sortBy === 'location') {
+                        // Sort by location ascending (A-Z)
+                        return a.Location.localeCompare(b.Location);
+                    } else if (this.sortBy === 'location-desc') {
+                        // Sort by location descending (Z-A)
+                        return b.Location.localeCompare(a.Location);
                     }
                     return 0;
                 });
