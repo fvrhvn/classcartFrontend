@@ -74,11 +74,16 @@
                         <!-- {{ item.name }}, {{ item.price }}, and {{ item.cartQuantity }} show item details -->
                         <!-- @click="removeFromCart(item)" handles remove action -->
                         <!-- Same format as main products page -->
+                        <img 
+                            :src="item.image" 
+                            :alt="item.name + ' lesson image'"
+                            class="product-image"
+                        >
                         <h3>{{ item.name }}</h3>
                         <p>Location: {{ item.Location }}</p>
                         <p class="price">Price: {{ item.price }}</p>
                         <p class="spaces">Quantity in Cart: {{ item.cartQuantity }}</p>
-                        <p class="subtotal">Subtotal: £{{ (parseFloat(item.price.replace('£', '')) * item.cartQuantity) }}</p>
+                        <p class="subtotal">Subtotal: {{ formatPrice(item.priceValue * item.cartQuantity) }}</p>
                         
                         <button @click="removeFromCart(item)" class="button remove-btn">Remove from Cart</button>
                     </div>
@@ -101,48 +106,63 @@
                 <form @submit.prevent="submitCheckout" class="checkout-form">
                     <h3>Checkout</h3>
                     
-                    <input 
-                        type="text" 
-                        v-model="checkoutForm.name" 
-                        required
-                        placeholder="Full Name"
-                        class="minimal-input"
-                    >
-                    <span v-if="validationErrors.name" class="error">{{ validationErrors.name }}</span>
+                    <div class="name-fields">
+                        <div class="name-field">
+                            <input 
+                                type="text" 
+                                v-model="checkoutForm.firstName" 
+                                required
+                                placeholder="First Name (letters only)"
+                                class="minimal-input"
+                            >
+                            <span v-if="validationErrors.firstName" class="error">{{ validationErrors.firstName }}</span>
+                        </div>
+                        <div class="name-field">
+                            <input 
+                                type="text" 
+                                v-model="checkoutForm.lastName" 
+                                required
+                                placeholder="Last Name (letters only)"
+                                class="minimal-input"
+                            >
+                            <span v-if="validationErrors.lastName" class="error">{{ validationErrors.lastName }}</span>
+                        </div>
+                    </div>
                     
                     <input 
-                        type="email" 
-                        v-model="checkoutForm.email" 
+                        type="tel" 
+                        v-model="checkoutForm.phone" 
                         required
-                        placeholder="Email"
+                        @input="filterPhone"
+                        inputmode="numeric"
+                        pattern="[0-9]*"
+                        placeholder="Phone Number"
                         class="minimal-input"
                     >
-                    <span v-if="validationErrors.email" class="error">{{ validationErrors.email }}</span>
+                    <span v-if="validationErrors.phone" class="error">{{ validationErrors.phone }}</span>
                     
-                    <textarea 
-                        v-model="checkoutForm.address" 
-                        required
-                        placeholder="Address"
-                        rows="2"
-                        class="minimal-textarea"
-                    ></textarea>
-                    <span v-if="validationErrors.address" class="error">{{ validationErrors.address }}</span>
-                    
-                    <button type="submit" class="minimal-btn" :disabled="isSubmitting">
-                        {{ isSubmitting ? 'Processing...' : 'Complete Purchase' }}
+                    <button 
+                        type="submit" 
+                        class="minimal-btn" 
+                        :disabled="!canSubmitCheckout || isSubmitting"
+                    >
+                        {{ isSubmitting ? 'Processing...' : 'Place Order' }}
                     </button>
                 </form>
-                
-                <!-- SECTION 7E: CHECKOUT SUCCESS MESSAGE -->
-                <!-- This section handles: Success message after checkout -->
-                <!-- v-if="checkoutSuccess" shows success message -->
-                <div v-if="checkoutSuccess" class="success-message">
-                    <h3>✅ Checkout Successful!</h3>
-                    <p>Thank you for your purchase, {{ checkoutForm.name }}!</p>
-                    <p>Your order total was £{{ total }}.</p>
-                    <p>We'll send a confirmation email to {{ checkoutForm.email }}.</p>
-                </div>
             </section>
+
+            <!-- SECTION 7E: CHECKOUT SUCCESS MESSAGE -->
+            <!-- This section handles: Success message after checkout -->
+            <!-- Shown even when the cart is empty so the user receives confirmation -->
+            <div 
+                v-if="checkoutSuccess && lastOrderSummary" 
+                class="success-message"
+            >
+                <h3>✅ Order Confirmed!</h3>
+                <p>Thank you for your purchase, {{ lastOrderSummary.displayName }}.</p>
+                <p>We will contact you at {{ lastOrderSummary.phone }}.</p>
+                <p>Your order total was £{{ lastOrderSummary.total.toFixed(2) }}.</p>
+            </div>
 
             <!-- SECTION 8: EMPTY CART STATE -->
             <!-- This section handles: Showing message when cart is empty -->

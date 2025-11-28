@@ -101,6 +101,17 @@
         font-weight: 600;
         color: #2E2E2E;
        }
+
+      .status-message {
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 600;
+        color: #3E2723;
+        margin: 1rem 0;
+      }
+
+      .status-message-error {
+        color: #D32F2F;
+      }
       
 /* SECTION: CHECKOUT FORM STYLING */
 /* This section handles: Minimalistic checkout form design */
@@ -340,6 +351,33 @@
 
 .cart-link:hover {
     opacity: 0.8;
+}
+
+.name-fields {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.name-field {
+    flex: 1;
+    min-width: 200px;
+}
+
+.cart-button {
+    border: 2px solid #3E2723;
+    border-radius: 999px;
+    background-color: #fff;
+    color: #3E2723;
+    padding: 0.35rem 0.9rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cart-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 /* Quantity input styling */

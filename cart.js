@@ -2,6 +2,15 @@
 // This file contains the main Vue instance for the shopping cart page
 // Uses Vue 2 Options API (not Composition API)
 // Demonstrates core Vue 2 features: data, computed, methods
+function deriveDefaultApiBase() {
+    const { protocol, hostname } = window.location;
+    const safeProtocol = protocol && protocol.startsWith('http') ? protocol : 'http:';
+    const safeHost = hostname || 'localhost';
+    const defaultPort = 3000;
+    return `${safeProtocol}//${safeHost}:${defaultPort}`;
+}
+
+const API_BASE_URL = window.CLASSCART_API_BASE_URL || deriveDefaultApiBase();
 
 new Vue({
     // SECTION 1A: VUE INSTANCE MOUNTING
@@ -30,13 +39,15 @@ new Vue({
         // checkoutSuccess tracks successful checkout completion
         // isSubmitting prevents double submissions
         checkoutForm: {
-            name: '',
-            email: '',
-            address: ''
+            firstName: '',
+            lastName: '',
+            phone: ''
         },
         validationErrors: {},
         checkoutSuccess: false,
-        isSubmitting: false
+        isSubmitting: false,
+        lastOrderSummary: null,
+        apiBaseUrl: API_BASE_URL
     },
     
     // SECTION 3: VUE 2 COMPUTED PROPERTIES
@@ -52,11 +63,26 @@ new Vue({
         // Returns total price of all items in cart
         total() {
             const total = this.cart.reduce((sum, item) => {
-                // Make sure price is a number - handle only £ currency
-                const price = parseFloat(item.price.replace('£', '')); 
-                return sum + (price * item.cartQuantity);
+                const price = typeof item.priceValue === 'number'
+                    ? item.priceValue
+                    : parseFloat((item.price || '').toString().replace('£', ''));
+                const quantity = item.cartQuantity || 0;
+                return sum + (price * quantity);
             }, 0);
             return total;
+        },
+
+        // SECTION 3B: CHECKOUT BUTTON STATE
+        // Ensures the checkout button only becomes active when all inputs are valid
+        canSubmitCheckout() {
+            const firstValue = this.checkoutForm.firstName.trim();
+            const lastValue = this.checkoutForm.lastName.trim();
+            const phoneValue = this.checkoutForm.phone.trim();
+            const nameRegex = /^[A-Za-z\s]+$/;
+            const firstValid = firstValue.length > 0 && nameRegex.test(firstValue);
+            const lastValid = lastValue.length > 0 && nameRegex.test(lastValue);
+            const phoneValid = phoneValue.length > 0 && /^\d+$/.test(phoneValue);
+            return firstValid && lastValid && phoneValid && this.cart.length > 0;
         }
     },
     
@@ -66,155 +92,219 @@ new Vue({
     // These are the Controller in MVC pattern
     // All methods have access to this.data and this.computed
     methods: {
-        // SECTION 4A: REMOVE FROM CART FUNCTIONALITY
-        // This section handles: Removing products from shopping cart
-        // Called when user clicks "Remove" button
-        // Removes item from cart and increases available spaces by cart quantity
-        // Updates product status and spaces count
-        removeFromCart(item) {
-            // Find index of item in cart array
+        // SECTION 4A: REMOVE FROM CART FUNCTIONALITY (WITH PUT)
+        async removeFromCart(item) {
+            if (!item) {
+                return;
+            }
+
+            try {
+                await this.restoreSpacesForItem(item);
+            } catch (error) {
+                console.error('Failed to restore lesson availability', error);
+                alert(error.message || 'Unable to restore lesson availability. Please try again.');
+                return;
+            }
+
             const index = this.cart.indexOf(item);
             if (index > -1) {
-                // Remove item from cart using splice()
                 this.cart.splice(index, 1);
-                // Save updated cart to localStorage
                 this.saveCart();
             }
         },
         
         // SECTION 4B: CART PERSISTENCE
-        // This section handles: Saving cart data to browser storage
-        // Saves cart data to browser's localStorage
-        // Allows cart to persist between page refreshes
-        // Uses JSON.stringify to convert array to string
         saveCart() {
-            // Save cart array to localStorage with key 'classCart'
-            localStorage.setItem('classCart', JSON.stringify(this.cart));
+            const sanitizedCart = this.cart.map(item => ({
+                id: item.id,
+                backendId: item.backendId || item.id,
+                name: item.name,
+                Location: item.Location,
+                price: item.price,
+                priceValue: item.priceValue,
+                image: item.image,
+                cartQuantity: item.cartQuantity
+            }));
+            localStorage.setItem('classCart', JSON.stringify(sanitizedCart));
         },
         
         // SECTION 4C: LOAD CART FROM STORAGE
-        // This section handles: Loading cart data from browser storage
-        // Loads cart data from localStorage on page load
-        // Uses JSON.parse to convert string back to array
         loadCart() {
             const savedCart = localStorage.getItem('classCart');
-            if (savedCart) {
-                this.cart = JSON.parse(savedCart);
+            if (!savedCart) {
+                return;
+            }
+
+            try {
+                const parsedCart = JSON.parse(savedCart);
+                if (!Array.isArray(parsedCart)) {
+                    return;
+                }
+
+                this.cart = parsedCart.map(item => ({
+                    ...item,
+                    backendId: item.backendId || item.id,
+                    cartQuantity: item.cartQuantity || 1
+                }));
+            } catch (error) {
+                console.error('Failed to load cart from storage', error);
             }
         },
         
         // SECTION 4D: NAVIGATION TO PRODUCTS PAGE
-        // This section handles: Navigating to products page
-        // Called when user clicks "Back to Products" button
-        // Saves cart to localStorage and navigates to products page
         goToProducts() {
-            // Save cart to localStorage for persistence
             this.saveCart();
-            // Navigate to products page using window.location
             window.location.href = 'index.html';
         },
+
+        // SECTION 4E: INPUT SANITIZATION
+        filterPhone(event) {
+            const digitsOnly = (event.target.value || '').replace(/\D/g, '');
+            this.checkoutForm.phone = digitsOnly;
+        },
         
-        // SECTION 4E: CHECKOUT FORM VALIDATION
-        // This section handles: Form validation for checkout
-        // Validates name, email, and address fields
-        // Returns true if all validations pass, false otherwise
+        // SECTION 4F: CHECKOUT FORM VALIDATION
         validateCheckoutForm() {
             this.validationErrors = {};
             let isValid = true;
+            const nameRegex = /^[A-Za-z\s]+$/;
             
-            // Validate name
-            if (!this.checkoutForm.name.trim()) {
-                this.validationErrors.name = 'Name is required';
+            if (!this.checkoutForm.firstName.trim()) {
+                this.validationErrors.firstName = 'First name is required';
                 isValid = false;
-            } else if (this.checkoutForm.name.trim().length < 2) {
-                this.validationErrors.name = 'Name must be at least 2 characters';
+            } else if (!nameRegex.test(this.checkoutForm.firstName.trim())) {
+                this.validationErrors.firstName = 'First name can contain letters and spaces only';
+                isValid = false;
+            }
+
+            if (!this.checkoutForm.lastName.trim()) {
+                this.validationErrors.lastName = 'Last name is required';
+                isValid = false;
+            } else if (!nameRegex.test(this.checkoutForm.lastName.trim())) {
+                this.validationErrors.lastName = 'Last name can contain letters and spaces only';
                 isValid = false;
             }
             
-            // Validate email
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!this.checkoutForm.email.trim()) {
-                this.validationErrors.email = 'Email is required';
+            if (!this.checkoutForm.phone.trim()) {
+                this.validationErrors.phone = 'Phone number is required';
                 isValid = false;
-            } else if (!emailRegex.test(this.checkoutForm.email)) {
-                this.validationErrors.email = 'Please enter a valid email address';
-                isValid = false;
-            }
-            
-            // Validate address
-            if (!this.checkoutForm.address.trim()) {
-                this.validationErrors.address = 'Address is required';
-                isValid = false;
-            } else if (this.checkoutForm.address.trim().length < 10) {
-                this.validationErrors.address = 'Address must be at least 10 characters';
+            } else if (!/^\d+$/.test(this.checkoutForm.phone.trim())) {
+                this.validationErrors.phone = 'Phone number must contain digits only';
                 isValid = false;
             }
             
             return isValid;
         },
         
-        // SECTION 4F: CHECKOUT SUBMISSION
-        // This section handles: Processing checkout form submission
-        // Validates form, processes checkout, and shows success message
-        // Simulates checkout processing with a delay
-        submitCheckout() {
-            // Prevent double submission
+        formatPrice(value) {
+            const number = typeof value === 'number' ? value : parseFloat(value);
+            if (Number.isNaN(number)) {
+                return '£0.00';
+            }
+            return `£${number.toFixed(2)}`;
+        },
+
+        // SECTION 4G: CHECKOUT SUBMISSION (POST /orders)
+        async submitCheckout() {
             if (this.isSubmitting) {
                 return;
             }
             
-            // Validate form
             if (!this.validateCheckoutForm()) {
                 return;
             }
+
+            if (this.cart.length === 0) {
+                alert('Your cart is empty. Add lessons before checking out.');
+                return;
+            }
             
-            // Set submitting state
             this.isSubmitting = true;
             this.checkoutSuccess = false;
-            
-            // Simulate checkout processing (2 second delay)
-            setTimeout(() => {
-                // Process checkout
-                this.processCheckout();
-                
-                // Show success message
-                this.checkoutSuccess = true;
-                this.isSubmitting = false;
-                
-                // Clear form after successful checkout
-                this.checkoutForm = {
-                    name: '',
-                    email: '',
-                    address: ''
-                };
-                this.validationErrors = {};
-                
-                // Show success alert
-                alert(`Checkout successful! Thank you for your purchase, ${this.checkoutForm.name || 'Customer'}!`);
-                
-            }, 2000);
-        },
-        
-        // SECTION 4G: CHECKOUT PROCESSING
-        // This section handles: Actual checkout processing logic
-        // Clears cart and saves order data
-        // Note: Spaces are not restored after checkout (items are sold)
-        processCheckout() {
-            // Save order to localStorage (simulate order processing)
-            const order = {
-                id: Date.now(),
-                customer: this.checkoutForm,
-                items: [...this.cart],
-                total: this.total,
-                date: new Date().toISOString()
+            const customerSnapshot = {
+                firstName: this.checkoutForm.firstName.trim(),
+                lastName: this.checkoutForm.lastName.trim(),
+                phone: this.checkoutForm.phone.trim()
+            };
+            const displayName = `${customerSnapshot.firstName} ${customerSnapshot.lastName}`.trim();
+            const orderTotal = this.total;
+            const orderPayload = {
+                name: displayName,
+                phone: customerSnapshot.phone,
+                lessonIDs: this.cart.map(item => item.backendId || item.id),
+                numberOfSpaces: this.cart.reduce((sum, item) => sum + (item.cartQuantity || 0), 0)
             };
             
-            // Save order
-            localStorage.setItem('lastOrder', JSON.stringify(order));
-            
-            // Clear cart (spaces remain decreased - items are sold)
-            this.cart = [];
-            this.saveCart();
+            try {
+                await this.createOrder(orderPayload);
+                
+                this.lastOrderSummary = {
+                    ...customerSnapshot,
+                    displayName,
+                    total: orderTotal
+                };
+                this.checkoutSuccess = true;
+                this.cart = [];
+                this.saveCart();
+                this.checkoutForm = { firstName: '', lastName: '', phone: '' };
+                this.validationErrors = {};
+                
+                alert(`Checkout successful! Thank you for your purchase, ${displayName || 'Customer'}!`);
+            } catch (error) {
+                console.error('Checkout failed', error);
+                alert(error.message || 'Unable to submit your order. Please try again.');
+            } finally {
+                this.isSubmitting = false;
+            }
+        },
+
+        // SECTION 4H: ORDER CREATION VIA FETCH POST
+        async createOrder(orderPayload) {
+            const response = await fetch(`${this.apiBaseUrl}/orders`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(orderPayload)
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.message || 'Unable to create order.');
+            }
+            return payload.data;
+        },
+
+        // SECTION 4I: LESSON HELPERS FOR SPACE RESTORATION
+        async fetchLessonById(lessonId) {
+            const response = await fetch(`${this.apiBaseUrl}/lessons/${lessonId}`);
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.message || 'Unable to fetch lesson details.');
+            }
+            return payload.data;
+        },
+
+        async updateLessonSpaces(lessonId, availableSpaces) {
+            const response = await fetch(`${this.apiBaseUrl}/lessons/${lessonId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ availableSpaces })
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.message || 'Unable to update lesson availability.');
+            }
+            return payload.data;
+        },
+
+        async restoreSpacesForItem(item) {
+            const lessonId = item.backendId || item.id;
+            const lesson = await this.fetchLessonById(lessonId);
+            const currentSpaces = typeof lesson.availableSpaces === 'number' ? lesson.availableSpaces : 0;
+            const updatedSpaces = currentSpaces + (item.cartQuantity || 0);
+            await this.updateLessonSpaces(lessonId, updatedSpaces);
         }
     },
     
@@ -255,3 +345,4 @@ new Vue({
 // 8. localStorage for data persistence
 // 9. Multi-page navigation with window.location
 // 10. Simple, defensible implementation using core Vue 2 features only
+

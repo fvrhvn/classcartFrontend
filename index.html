@@ -40,10 +40,16 @@
         <header class="header">
             <h1>ClassCart</h1>
             <div class="cart-info">
-                <a href="cart.html" class="cart-link">
+                <button 
+                    type="button"
+                    class="cart-link cart-button"
+                    :disabled="cart.length === 0"
+                    @click="goToCart"
+                    aria-label="View cart"
+                >
                     <i class="fa-solid fa-cart-shopping"></i>
-                    {{ cart.length }}
-                </a>
+                    <span>Cart ({{ cart.length }})</span>
+                </button>
             </div>
         </header>
 
@@ -61,14 +67,20 @@
                 >
                 <select v-model="sortBy" class="sort-dropdown">
                     <option value="">Sort by...</option>
-                    <option value="name">Sort by Name (A-Z)</option>
-                    <option value="name-desc">Sort by Name (Z-A)</option>
-                    <option value="price">Sort by Price (Low to High)</option>
-                    <option value="price-desc">Sort by Price (High to Low)</option>
-                    <option value="location">Sort by Location (A-Z)</option>
-                    <option value="location-desc">Sort by Location (Z-A)</option>
+                    <option value="subject">Subject (A-Z)</option>
+                    <option value="subject-desc">Subject (Z-A)</option>
+                    <option value="location">Location (A-Z)</option>
+                    <option value="location-desc">Location (Z-A)</option>
+                    <option value="spaces">Spaces (Low to High)</option>
+                    <option value="spaces-desc">Spaces (High to Low)</option>
+                    <option value="price">Price (Low to High)</option>
+                    <option value="price-desc">Price (High to Low)</option>
                 </select>
             </div>
+
+            <p v-if="isLoadingLessons" class="status-message">Loading lessons...</p>
+            <p v-else-if="apiError" class="status-message status-message-error">{{ apiError }}</p>
+            <p v-else-if="!filteredProducts.length" class="status-message">No lessons match your filters yet.</p>
           
             <!-- SECTION 6: PRODUCT CATALOG -->
             <!-- This section handles: Displaying all available educational lessons -->

@@ -2,6 +2,15 @@
 // This file contains the main Vue instance for the shopping cart
 // Uses Vue 2 Options API (not Composition API)
 // Demonstrates core Vue 2 features: data, computed, methods
+function deriveDefaultApiBase() {
+    const { protocol, hostname } = window.location;
+    const safeProtocol = protocol && protocol.startsWith('http') ? protocol : 'http:';
+    const safeHost = hostname || 'localhost';
+    const defaultPort = 3000;
+    return `${safeProtocol}//${safeHost}:${defaultPort}`;
+}
+
+const API_BASE_URL = window.CLASSCART_API_BASE_URL || deriveDefaultApiBase();
 
 new Vue({
     // SECTION 1A: VUE INSTANCE MOUNTING
@@ -17,129 +26,26 @@ new Vue({
     // This is the Model in MVC pattern
     data: {
         // SECTION 2A: PRODUCTS DATA ARRAY
-        // This section handles: Educational lessons catalog
-        // Static array of 10 educational lessons
-        // Each product has: id, name, description, price, spaces, quantity, inCart status
-        // spaces tracks available spots (0 = out of stock)
-        // quantity tracks how many spaces user wants to buy
-        // inCart tracks whether item is in shopping cart
-        products: [
-            {
-                id: 1,
-                name: 'Mobile App Development',
-                Location:'Birmingham',
-                image: 'assets/logo-mobile.svg',
-                price: "£88.99",
-                spaces: 10,
-                quantity: 1,
-                inCart: false
-            },
-            {
-                id: 2,
-                name: 'Artificial Intelligence & Machine Learning',
-                Location:'West-Ham',
-                image: 'assets/logo-ai-ml.svg',
-                price: "£149.99",
-                spaces: 8,
-                quantity: 1,
-                inCart: false
-            },
-            {
-                id: 3,
-                name: 'Cloud Computing with AWS or Azure Lab Course',
-                Location:'Newcastle',
-                image: 'assets/logo-cloud.svg',
-                price: "£99.99",
-                spaces: 5,
-                quantity: 1,
-                inCart: false
-            },
-            {
-                id: 4,
-                name: 'Cybersecurity Basics',
-                Location:'Bristol',
-                image: 'assets/logo-cybersecurity.svg',
-                price: "£250",
-                spaces: 5,
-                quantity: 1,
-                inCart: false
-            },
-            {
-                id: 5,
-                name: 'UI/UX Design Principles',
-                Location:'Brentford',
-                image: 'assets/logo-figma.svg',
-                price: "£220",
-                spaces: 5,
-                quantity: 1,
-                inCart: false
-            },
-            {
-                id: 6,
-                name: 'Project Management',
-                Location:'Manchester',
-                image: 'assets/logo-jira.svg',
-                price: "£250",
-                spaces: 5,
-                quantity: 1,
-                inCart: false
-            },
-            {
-                id: 7,
-                name: 'Computer Science',
-                Location:'Villa-park',
-                image: 'assets/logo-compsci.svg',
-                price: "£200",
-                spaces: 10,
-                quantity: 1,
-                inCart: false
-            },
-            {
-                id: 8,
-                name: 'Database Design & SQL',
-                Location:'Leicester',
-                image: 'assets/logo-database.svg',
-                price: "£199",
-                spaces: 7,
-                quantity: 1,
-                inCart: false
-            },
-            {
-                id: 9,
-                name: 'Backend Development with Node.js',
-                Location:'Norwich',
-                image: 'assets/logo-node.svg',
-                price: "£209",
-                spaces: 5,
-                quantity: 1,
-                inCart: false
-            },
-            {
-                id: 10,
-                name: 'Python Programming',
-                Location:'Liverpool',
-                image: 'assets/logo-python.svg',
-                price: "£150",
-                spaces: 12,
-                quantity: 1,
-                inCart: false
-            }
-        ],
+        // Lessons are fetched from the Express + MongoDB backend and normalized for the UI
+        products: [],
         
         // SECTION 2B: SHOPPING CART STATE
-        // This section handles: Cart items storage
-        // cart[] stores items added to shopping cart
-        // Initially empty, populated when user adds items
-        // This is the main state for cart functionality
         cart: [],
         
         // SECTION 2C: SEARCH AND SORT FUNCTIONALITY
-        // This section handles: Search query and sorting state
-        // searchQuery stores the current search term
-        // sortBy stores the current sorting option
-        // Initially empty strings for no filtering/sorting
         searchQuery: '',
-        sortBy: ''
+        sortBy: '',
+
+        // SECTION 2D: API CONFIGURATION AND STATUS FLAGS
+        apiBaseUrl: API_BASE_URL,
+        isLoadingLessons: false,
+        apiError: ''
+    },
+
+    // SECTION 2E: LIFECYCLE HOOKS FOR REMOTE DATA
+    // created() fetches lessons from the backend as soon as the app boots
+    created() {
+        this.fetchLessons();
     },
     
     // SECTION 3: VUE 2 COMPUTED PROPERTIES
@@ -155,9 +61,12 @@ new Vue({
         // Returns total price of all items in cart
         total() {
             const total = this.cart.reduce((sum, item) => {
-                // Make sure price is a number - handle only £ currency
-                const price = parseFloat(item.price.replace('£', '')); 
-                return sum + (price * item.cartQuantity);
+                // Prefer numeric prices from the API, otherwise fall back to parsing the £ string
+                const price = typeof item.priceValue === 'number'
+                    ? item.priceValue
+                    : parseFloat((item.price || '').toString().replace('£', ''));
+                const quantity = item.cartQuantity || 0;
+                return sum + (price * quantity);
             }, 0); // Add missing initial value!
             return total;
         },
@@ -182,12 +91,24 @@ new Vue({
             // Apply sorting if sortBy is selected
             if (this.sortBy) {
                 filtered = [...filtered].sort((a, b) => {
-                    if (this.sortBy === 'name') {
-                        // Sort by name ascending (A-Z)
+                    if (this.sortBy === 'subject' || this.sortBy === 'name') {
+                        // Sort by subject (name) ascending (A-Z)
                         return a.name.localeCompare(b.name);
-                    } else if (this.sortBy === 'name-desc') {
-                        // Sort by name descending (Z-A)
+                    } else if (this.sortBy === 'subject-desc' || this.sortBy === 'name-desc') {
+                        // Sort by subject (name) descending (Z-A)
                         return b.name.localeCompare(a.name);
+                    } else if (this.sortBy === 'location') {
+                        // Sort by location ascending (A-Z)
+                        return a.Location.localeCompare(b.Location);
+                    } else if (this.sortBy === 'location-desc') {
+                        // Sort by location descending (Z-A)
+                        return b.Location.localeCompare(a.Location);
+                    } else if (this.sortBy === 'spaces') {
+                        // Sort by spaces ascending (Low to High)
+                        return a.spaces - b.spaces;
+                    } else if (this.sortBy === 'spaces-desc') {
+                        // Sort by spaces descending (High to Low)
+                        return b.spaces - a.spaces;
                     } else if (this.sortBy === 'price') {
                         // Sort by price ascending (Low to High)
                         // Extract numeric value from price string (e.g., "£299" -> 299)
@@ -200,12 +121,6 @@ new Vue({
                         const priceA = parseFloat(a.price.replace('£', ''));
                         const priceB = parseFloat(b.price.replace('£', ''));
                         return priceB - priceA;
-                    } else if (this.sortBy === 'location') {
-                        // Sort by location ascending (A-Z)
-                        return a.Location.localeCompare(b.Location);
-                    } else if (this.sortBy === 'location-desc') {
-                        // Sort by location descending (Z-A)
-                        return b.Location.localeCompare(a.Location);
                     }
                     return 0;
                 });
@@ -221,85 +136,208 @@ new Vue({
     // These are the Controller in MVC pattern
     // All methods have access to this.data and this.computed
     methods: {
-        // SECTION 4A: ADD TO CART FUNCTIONALITY
-        // This section handles: Adding products to shopping cart with quantities
-        // Called when user clicks "Add to Cart" button
-        // Checks if product has available spaces for requested quantity
-        // Decreases spaces count based on quantity when item is added to cart
-        // Modifies reactive data (cart, product.inCart, product.spaces)
-        addToCart(product) {
-            // Check if product has available spaces for the requested quantity
-            if (product.spaces >= product.quantity && product.quantity > 0) {
-                // Check if product is already in cart
-                const existingItem = this.cart.find(item => item.id === product.id);
-                
-                if (existingItem) {
-                    // If already in cart, increase quantity
-                    existingItem.cartQuantity += product.quantity;
-                } else {
-                    // If not in cart, add new item with cart quantity
-                    const cartItem = {
-                        ...product,
-                        cartQuantity: product.quantity
-                    };
-                    this.cart.push(cartItem);
-                    product.inCart = true;
+        // SECTION 4A: BACKEND LESSON FETCHING
+        // Uses fetch() to load lessons from Express + MongoDB
+        async fetchLessons() {
+            this.isLoadingLessons = true;
+            this.apiError = '';
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/lessons`);
+                if (!response.ok) {
+                    throw new Error('Unable to load lessons. Please check the API server.');
                 }
-                
-                // Decrease available spaces by quantity
-                product.spaces -= product.quantity;
-                // Reset quantity to 1 for next purchase
-                product.quantity = 1;
-                // Save cart to localStorage for persistence
-                this.saveCart();
+                const payload = await response.json();
+                if (!payload.success) {
+                    throw new Error(payload.message || 'Unable to load lessons.');
+                }
+
+                const lessons = Array.isArray(payload.data) ? payload.data : [];
+                this.products = lessons.map(lesson => ({
+                    id: lesson._id,
+                    backendId: lesson._id,
+                    name: lesson.subject,
+                    Location: lesson.location,
+                    image: this.buildImagePath(lesson.image),
+                    price: this.formatPrice(lesson.price),
+                    priceValue: typeof lesson.price === 'number' ? lesson.price : parseFloat(lesson.price),
+                    spaces: typeof lesson.availableSpaces === 'number' ? lesson.availableSpaces : 0,
+                    quantity: 1,
+                    inCart: false,
+                    description: lesson.description || ''
+                }));
+
+                this.loadCart();
+            } catch (error) {
+                console.error('Failed to fetch lessons', error);
+                this.apiError = error.message || 'Unable to load lessons.';
+            } finally {
+                this.isLoadingLessons = false;
             }
         },
-        
-        // SECTION 4B: REMOVE FROM CART FUNCTIONALITY
-        // This section handles: Removing products from shopping cart
-        // Called when user clicks "Remove" button
-        // Removes item from cart and increases available spaces by cart quantity
-        // Updates product status and spaces count
-        removeFromCart(item) {
-            // Find index of item in cart array
-            const index = this.cart.indexOf(item);
-            if (index > -1) {
-                // Find the original product to restore spaces
-                const originalProduct = this.products.find(p => p.id === item.id);
-                if (originalProduct) {
-                    // Restore spaces based on cart quantity
-                    originalProduct.spaces += item.cartQuantity;
-                    // Mark product as not in cart
-                    originalProduct.inCart = false;
-                }
-                
-                // Remove item from cart using splice()
-                this.cart.splice(index, 1);
-                // Save updated cart to localStorage
-                this.saveCart();
+
+        // SECTION 4B: UI HELPERS
+        // formatPrice() ensures consistent £ display
+        formatPrice(value) {
+            const number = typeof value === 'number' ? value : parseFloat(value);
+            if (Number.isNaN(number)) {
+                return '£0.00';
             }
+            return `£${number.toFixed(2)}`;
         },
-        
-        // SECTION 4C: CART PAGE NAVIGATION
-        // This section handles: Navigating to cart page
-        // Called when user clicks "View Cart" button
-        // Saves cart to localStorage and navigates to cart page
-        // This demonstrates multi-page application navigation
-        goToCart() {
-            // Save cart to localStorage for persistence
+
+        // buildImagePath() maps lesson image filenames to the assets folder
+        buildImagePath(filename) {
+            if (!filename) {
+                return 'assets/logo-python.svg';
+            }
+            if (filename.startsWith('http')) {
+                return filename;
+            }
+            if (filename.startsWith('assets/')) {
+                return filename;
+            }
+            return `assets/${filename}`;
+        },
+
+        // SECTION 4C: LESSON SPACE UPDATES (PUT)
+        // updateLessonSpacesOnServer() sends PUT /lessons/:id with the new availability
+        async updateLessonSpacesOnServer(lessonId, availableSpaces) {
+            const response = await fetch(`${this.apiBaseUrl}/lessons/${lessonId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ availableSpaces })
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                throw new Error(payload.message || 'Unable to update lesson availability.');
+            }
+            return payload.data;
+        },
+
+        // SECTION 4D: ADD TO CART FUNCTIONALITY (WITH PUT)
+        async addToCart(product) {
+            if (!product || product.quantity <= 0 || product.quantity > product.spaces) {
+                return;
+            }
+
+            const requestedQuantity = product.quantity;
+            const newSpaces = product.spaces - requestedQuantity;
+
+            try {
+                await this.updateLessonSpacesOnServer(product.backendId || product.id, newSpaces);
+            } catch (error) {
+                console.error('Failed to reserve lesson spaces', error);
+                alert('Unable to reserve spaces. Please try again.');
+                return;
+            }
+
+            const existingItem = this.cart.find(item => item.id === product.id);
+            if (existingItem) {
+                existingItem.cartQuantity += requestedQuantity;
+            } else {
+                this.cart.push({
+                    id: product.id,
+                    backendId: product.backendId || product.id,
+                    name: product.name,
+                    Location: product.Location,
+                    price: product.price,
+                    priceValue: product.priceValue,
+                    image: product.image,
+                    cartQuantity: requestedQuantity
+                });
+                product.inCart = true;
+            }
+
+            product.spaces = newSpaces;
+            product.quantity = 1;
             this.saveCart();
-            // Navigate to cart page using window.location
+        },
+
+        // SECTION 4E: REMOVE FROM CART (NOT VISIBLE IN UI BUT SUPPORTED)
+        async removeFromCart(item) {
+            if (!item) {
+                return;
+            }
+
+            const lessonId = item.backendId || item.id;
+            const cartIndex = this.cart.findIndex(cartItem => cartItem.id === item.id);
+            const product = this.products.find(p => p.id === item.id);
+            const restoredSpaces = product ? product.spaces + (item.cartQuantity || 0) : (item.cartQuantity || 0);
+
+            try {
+                await this.updateLessonSpacesOnServer(lessonId, restoredSpaces);
+            } catch (error) {
+                console.error('Failed to restore lesson spaces', error);
+                alert('Unable to restore lesson availability. Please try again.');
+                return;
+            }
+
+            if (product) {
+                product.spaces = restoredSpaces;
+                product.inCart = false;
+            }
+
+            if (cartIndex > -1) {
+                this.cart.splice(cartIndex, 1);
+            }
+            this.saveCart();
+        },
+
+        // SECTION 4F: CART PAGE NAVIGATION
+        goToCart() {
+            if (this.cart.length === 0) {
+                return;
+            }
+            this.saveCart();
             window.location.href = 'cart.html';
         },
-        
-        // SECTION 4D: CART PERSISTENCE
-        // This section handles: Saving cart data to browser storage
-        // Saves cart data to browser's localStorage
-        // Allows cart to persist between page refreshes
-        // Uses JSON.stringify to convert array to string
+
+        // SECTION 4G: CART PERSISTENCE
         saveCart() {
-            // Save cart array to localStorage with key 'classCart'
-            localStorage.setItem('classCart', JSON.stringify(this.cart));
+            const sanitizedCart = this.cart.map(item => ({
+                id: item.id,
+                backendId: item.backendId || item.id,
+                name: item.name,
+                Location: item.Location,
+                price: item.price,
+                priceValue: item.priceValue,
+                image: item.image,
+                cartQuantity: item.cartQuantity
+            }));
+            localStorage.setItem('classCart', JSON.stringify(sanitizedCart));
+        },
+
+        // SECTION 4H: LOAD CART FROM STORAGE
+        loadCart() {
+            const savedCart = localStorage.getItem('classCart');
+            if (!savedCart) {
+                return;
+            }
+
+            try {
+                const parsedCart = JSON.parse(savedCart);
+                if (!Array.isArray(parsedCart)) {
+                    return;
+                }
+
+                this.cart = parsedCart.map(item => ({
+                    ...item,
+                    backendId: item.backendId || item.id,
+                    cartQuantity: item.cartQuantity || 1
+                }));
+
+                this.cart.forEach(cartItem => {
+                    const product = this.products.find(p => p.id === cartItem.id);
+                    if (product) {
+                        product.inCart = true;
+                        product.quantity = 1;
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load cart from storage', error);
+            }
         }
     }
     
