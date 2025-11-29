@@ -2,15 +2,8 @@
 // This file contains the main Vue instance for the shopping cart
 // Uses Vue 2 Options API (not Composition API)
 // Demonstrates core Vue 2 features: data, computed, methods
-function deriveDefaultApiBase() {
-    const { protocol, hostname } = window.location;
-    const safeProtocol = protocol && protocol.startsWith('http') ? protocol : 'http:';
-    const safeHost = hostname || 'localhost';
-    const defaultPort = 3000;
-    return `${safeProtocol}//${safeHost}:${defaultPort}`;
-}
 
-const API_BASE_URL = window.CLASSCART_API_BASE_URL || deriveDefaultApiBase();
+const API_BASE_URL = "http://localhost:3000"
 
 new Vue({
     // SECTION 1A: VUE INSTANCE MOUNTING
