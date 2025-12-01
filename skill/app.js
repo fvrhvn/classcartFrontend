@@ -267,27 +267,54 @@ new Vue({
         },
 
         // SECTION 4D: ADD TO CART FUNCTIONALITY (WITH PUT)
-        async addToCart(product) {
-            if (!this.canAddProductToCart(product)) {
-                return;
-            }
+        // async addToCart(product) {
+        //     if (!this.canAddProductToCart(product)) {
+        //         return;
+        //     }
 
-            const requestedQuantity = product.quantity;
-            const newSpaces = this.calculateReducedSpaces(product, requestedQuantity);
-            const lessonId = this.resolveLessonId(product);
+        //     const requestedQuantity = product.quantity;
+        //     const newSpaces = this.calculateReducedSpaces(product, requestedQuantity);
+        //     const lessonId = this.resolveLessonId(product);
 
-            const updated = await this.tryUpdateSpaces(lessonId, newSpaces, {
-                log: 'Failed to reserve lesson spaces',
-                alert: 'Unable to reserve spaces. Please try again.'
-            });
+        //     const updated = await this.tryUpdateSpaces(lessonId, newSpaces, {
+        //         log: 'Failed to reserve lesson spaces',
+        //         alert: 'Unable to reserve spaces. Please try again.'
+        //     });
 
-            if (!updated) {
-                return;
-            }
+        //     if (!updated) {
+        //         return;
+        //     }
 
-            this.upsertCartItem(product, requestedQuantity);
-            this.finalizeAddToCart(product, newSpaces);
-        },
+        //     this.upsertCartItem(product, requestedQuantity);
+        //     this.finalizeAddToCart(product, newSpaces);
+        // },
+        // addToCart(lesson) {
+        //     if (lesson.spaces <= 0) return;
+          
+        //     lesson.spaces--;
+        //     console.log("lesson", lesson)
+          
+        //     const cartItem = {
+        //         lessonId: lesson.id,
+        //         name: lesson.name,
+        //         image: lesson.image,
+        //         price: lesson.priceValue,
+        //         quantity: lesson.quantity,
+        //         spaces: lesson.spaces
+        //       };
+                
+
+        //     fetch("http://localhost:3000/cart/", {
+        //       method: "POST",
+        //       headers: { "Content-Type": "application/json" },
+        //       body: JSON.stringify({ lesson: cartItem })
+        //     })
+        //     .then(res => res.json())
+        //     .then(data => {
+        //       this.cart = data;  
+        //     })
+        //     .catch(err => console.error("Add to cart failed:", err));
+        //   }
 
         canAddProductToCart(product) {
             return product && product.quantity > 0 && product.quantity <= product.spaces;
@@ -490,15 +517,14 @@ new Vue({
             if (this.cart.length === 0) {
                 return;
             }
-            this.saveCart();
             window.location.href = 'cart.html';
         },
 
         // SECTION 4G: CART PERSISTENCE
-        saveCart() {
-            const sanitizedCart = this.buildCartStoragePayload();
-            localStorage.setItem('classCart', JSON.stringify(sanitizedCart));
-        },
+        // saveCart() {
+        //     const sanitizedCart = this.buildCartStoragePayload();
+        //     localStorage.setItem('classCart', JSON.stringify(sanitizedCart));
+        // },
 
         buildCartStoragePayload() {
             return this.cart.map(item => {
@@ -517,33 +543,45 @@ new Vue({
         },
 
         // SECTION 4H: LOAD CART FROM STORAGE
-        loadCart() {
-            const savedCart = this.getSavedCart();
-            if (!savedCart) {
-                return;
-            }
+         loadCart() {
+            // const savedCart = this.getSavedCart();
+            // if (!savedCart) {
+            //     return;
+            // }
 
-            const parsedCart = this.parseSavedCart(savedCart);
-            if (!Array.isArray(parsedCart)) {
-                return;
-            }
+            fetch(`${this.apiBaseUrl}/cart`)
+                .then(response => response.json())
+                .then(cartData => {
+                    this.cart = cartData.data
+                    console.log("cart", this.cart)
+                    // You may want to process cartData here, e.g., assign to this.cart, etc.
+                })
+                .catch(error => {
+                    console.error("Failed to load cart from API", error);
+                });
 
-            this.cart = parsedCart.map(item => this.decorateCartItem(item));
-            this.flagProductsInCart();
+
+            // const parsedCart = this.parseSavedCart(savedCart);
+            // if (!Array.isArray(parsedCart)) {
+            //     return;
+            // }
+
+            // this.cart = parsedCart.map(item => this.decorateCartItem(item));
+            // this.flagProductsInCart();
         },
 
-        getSavedCart() {
-            return localStorage.getItem('classCart');
-        },
+        // getSavedCart() {
+        //     return localStorage.getItem('classCart');
+        // },
 
-        parseSavedCart(savedCart) {
-            try {
-                return JSON.parse(savedCart);
-            } catch (error) {
-                console.error('Failed to load cart from storage', error);
-                return null;
-            }
-        },
+        // parseSavedCart(savedCart) {
+        //     try {
+        //         return JSON.parse(savedCart);
+        //     } catch (error) {
+        //         console.error('Failed to load cart from storage', error);
+        //         return null;
+        //     }
+        // },
 
         decorateCartItem(item) {
             const normalizedLessonId = normalizeLessonIdValue(item && (item.backendId || item.id || item._id));
@@ -569,8 +607,10 @@ new Vue({
                 }
             });
         }
-    }
-    
+    },
+    mounted() {
+        this.loadCart();
+    },
     // SECTION 5: VUE 2 FEATURES NOT USED
     // This section handles: Compliance with requirements
     // No watchers (watch: {})

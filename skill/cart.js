@@ -1,16 +1,4 @@
-// SECTION 1: VUE 2.7.8 OPTIONS API IMPLEMENTATION FOR CART PAGE
-// This file contains the main Vue instance for the shopping cart page
-// Uses Vue 2 Options API (not Composition API)
-// Demonstrates core Vue 2 features: data, computed, methods
-function deriveDefaultApiBase() {
-    const { protocol, hostname } = window.location;
-    const safeProtocol = protocol && protocol.startsWith('http') ? protocol : 'http:';
-    const safeHost = hostname || 'localhost';
-    const defaultPort = 3000;
-    return `${safeProtocol}//${safeHost}:${defaultPort}`;
-}
-
-const API_BASE_URL = window.CLASSCART_API_BASE_URL || deriveDefaultApiBase();
+const API_BASE_URL = "http://localhost:3000";
 
 function normalizeLessonIdValue(rawId) {
     if (rawId === undefined || rawId === null) {
@@ -239,25 +227,75 @@ new Vue({
                 name: item.name || ''
             };
         },
-        
-        // SECTION 4C: LOAD CART FROM STORAGE
-        loadCart() {
-            const savedCart = this.getSavedCart();
-            if (!savedCart) {
-                return;
+        async loadCart() {
+            try {
+              const res = await fetch("http://localhost:3000/cart");
+              const data = await res.json();    // <-- await here!
+              console.log("cart response", data);
+              this.cart = data.data;
+            } catch (err) {
+              console.error("Failed to load cart", err);
             }
-
-            const parsedCart = this.parseSavedCart(savedCart);
-            if (!Array.isArray(parsedCart)) {
-                return;
-            }
-
-            this.cart = parsedCart.map(item => this.decorateCartItem(item));
-        },
-
+          },           
         getSavedCart() {
             return localStorage.getItem('classCart');
         },
+        async deleteFromCart(class_id) {
+            console.log("class_id", class_id)
+             const lessonIndex = this.cart.findIndex(l => l.classId === class_id);
+                if (lessonIndex === -1) return;
+
+                if (this.cart[lessonIndex].quantity > 1) {
+                    this.cart[lessonIndex].quantity -= 1;
+                } else {
+                    this.cart.splice(lessonIndex, 1);
+                }
+          try {
+            const res = await fetch(`http://localhost:5000/orders/decrease/${class_id}`,{
+                method:"PUT"
+            });
+            console.log("response", res)
+            this.fetchCart()
+            this.fetchLessons()
+            const data = await res.json();
+            this.lessons = data;
+          } catch (err) {
+            console.error("Failed to load lessons", err);
+          }
+        },
+      
+        async addToCart(lesson) {
+            if (lesson.spaces <= 0) return;
+          
+            console.log("lesson", lesson);
+          
+            try {
+              // Reduce lesson spaces
+              const resUpdate = await fetch(`http://localhost:5000/lessons/${lesson.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ availableSpaces: lesson.spaces - 1 })
+              });
+              const updatedLesson = await resUpdate.json();
+          
+              // Add to cart
+              const resCart = await fetch('http://localhost:5000/cart/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lessonId: lesson.id, quantity: 1 })
+              });
+              const cartData = await resCart.json();
+          
+              // Update local state
+              lesson.spaces = updatedLesson.data.spaces;
+              this.cart.push(cartData.data);
+          
+            } catch (err) {
+              console.error("Add to cart failed:", err);
+            }
+          }
+          
+,  
 
         parseSavedCart(savedCart) {
             try {

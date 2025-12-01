@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Skill Path</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+ <link rel="stylesheet" href="./styles.css">
+</head>
+<body id="app">
+   
+  <header>
+    <h1>Class cart</h1>
+     <button class="view-cart-btn" :disabled="cart.length < 1" @click="showCart = !showCart">
+      {{ showCart ? "Hide Cart" : "View Cart (" + cart.length + ")" }}
+    </button>
+ 
+      </header>
+
+
+    <input
+  type="text"
+  v-model="searchQuery"
+  @input="searchLessons"
+  placeholder="Search lessons..."
+  class="search-box"
+/>
+
+ <div class="sort-controls" v-if="!showCart">
+
+  <select v-model="sortAttribute" @change="sortLessons">
+    <option disabled value="">Sort by...</option>
+    <option value="subject">Subject</option>
+    <option value="location">Location</option>
+    <option value="price">Price</option>
+    <option value="spaces">Spaces</option>
+  </select>
+
+  <select v-model="sortOrder" @change="sortLessons">
+    <option value="asc">Ascending</option>
+    <option value="desc">Descending</option>
+  </select>
+
+</div>
+
+  <div class="container">
+
+
+    
+    <div v-for="lesson in lessons" :key="lesson.id" class="lesson-card" v-if="!showCart">
+      <div>
+        <img :src="lesson.img_url" alt="" class="img-div"/>
+        <div class="lesson-desc">
+        <p><strong>Price:</strong> Rs {{ lesson.price }}</p>
+        <p><strong>Available:</strong> {{ lesson.spaces }}</p>
+        <p><strong>Location:</strong> {{ lesson.location }}</p>
+        <p><strong>Subject:</strong> {{ lesson.subject }}</p>
+      </div>
+
+      <button
+        class="add-btn"
+        :disabled="lesson.spaces < 1"
+        @click="addToCart(lesson)"
+      >
+        Add to Cart
+      </button>
+    </div>
+        </div>
+
+<!-- 
+    <button class="view-cart-btn" :disabled="cart.length < 1" @click="showCart = !showCart">
+      {{ showCart ? "Hide Cart" : "View Cart (" + cart.length + ")" }}
+    </button> -->
+  </div>
+    <div v-if="showCart" class="cart-box" >
+      <h2>Your Cart</h2>
+      <div v-if="cart.length === 0">No items in cart.</div>
+
+      <ul class="cart-list">
+        <li v-for="item in cart" :key="item.classId">
+ <div>
+        <img :src="item.img_url" alt="" class="img-div"/>
+        <div class="lesson-desc">
+        <p><strong>Price:</strong> £ {{ item.price }}</p>
+        <p><strong>Location:</strong> {{ item.location }}</p>
+        <p><strong>Quantity:</strong> {{ item.quantity }}</p>
+        <p><strong>Subject:</strong> {{ item.subject }}</p>
+         <button
+        class="add-btn"
+        :disabled="item.spaces < 1"
+        @click="deleteFromCart(item.classId)"
+      >
+        Remove from Cart
+      </button>
+      </div>
+    </div>
+        </li>
+      </ul>
+   
+ 
+   <div class="checkout-box">
+  <h3>Checkout</h3>
+
+  <label>Name:</label>
+  <input
+    type="text"
+    v-model="checkoutName"
+    placeholder="Enter your name"
+  />
+
+  <label>Phone:</label>
+  <input
+    type="text"
+    v-model="checkoutPhone"
+    placeholder="Enter your phone number"
+  />
+
+  <button
+    class="checkout-btn"
+    :disabled="!validCheckout"
+    @click="submitCheckout"
+  >
+    Checkout
+  </button>
+</div>
+ </div>
+  </div>
+
+<script src="./app.js"></script>
+</body>
+</html>

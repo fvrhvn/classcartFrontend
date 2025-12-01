@@ -82,8 +82,8 @@
                         <h3>{{ item.name }}</h3>
                         <p>Location: {{ item.Location }}</p>
                         <p class="price">Price: {{ item.price }}</p>
-                        <p class="spaces">Quantity in Cart: {{ item.cartQuantity }}</p>
-                        <p class="subtotal">Subtotal: {{ formatPrice(item.priceValue * item.cartQuantity) }}</p>
+                        <p class="spaces">Quantity in Cart: {{ item.quantity }}</p>
+                        <p class="subtotal">Subtotal: {{ formatPrice(item.price * item.quantity) }}</p>
                         
                         <button @click="removeFromCart(item)" class="button remove-btn">Remove from Cart</button>
                     </div>
