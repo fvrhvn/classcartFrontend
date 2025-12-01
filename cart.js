@@ -12,6 +12,40 @@ function deriveDefaultApiBase() {
 
 const API_BASE_URL = window.CLASSCART_API_BASE_URL || deriveDefaultApiBase();
 
+function normalizeLessonIdValue(rawId) {
+    if (rawId === undefined || rawId === null) {
+        return '';
+    }
+
+    if (typeof rawId === 'string') {
+        return rawId.trim();
+    }
+
+    if (typeof rawId === 'number') {
+        return String(rawId);
+    }
+
+    if (typeof rawId === 'object') {
+        if (typeof rawId.$oid === 'string') {
+            return rawId.$oid;
+        }
+        if (rawId._id !== undefined) {
+            return normalizeLessonIdValue(rawId._id);
+        }
+        if (typeof rawId.toHexString === 'function') {
+            return rawId.toHexString();
+        }
+        if (typeof rawId.toString === 'function') {
+            const objectString = rawId.toString();
+            if (objectString && objectString !== '[object Object]') {
+                return objectString;
+            }
+        }
+    }
+
+    return String(rawId);
+}
+
 new Vue({
     // SECTION 1A: VUE INSTANCE MOUNTING
     // This section handles: Connecting Vue to HTML element
@@ -92,63 +126,156 @@ new Vue({
     // These are the Controller in MVC pattern
     // All methods have access to this.data and this.computed
     methods: {
-        // SECTION 4A: REMOVE FROM CART FUNCTIONALITY (WITH PUT)
+        // SECTION 4A: REMOVE FROM CART FUNCTIONALITY (WITH PUT + OFFLINE FALLBACK)
         async removeFromCart(item) {
-            if (!item) {
+            if (!this.canRemoveCartItem(item)) {
+                console.warn('[Cart] removeFromCart called with invalid item', item);
                 return;
+            }
+
+            const lessonId = this.resolveLessonId(item);
+            const cartBefore = this.cart.map(cartItem => this.buildCartItemLogSnapshot(cartItem));
+            console.log('[Cart] removeFromCart:start', {
+                lessonId,
+                cartBefore,
+                selectedItem: this.buildCartItemLogSnapshot(item)
+            });
+
+            const restoreResult = await this.tryRestoreSpacesForRemoval(item, lessonId);
+            if (!restoreResult.success) {
+                this.notifyRestoreFailure(restoreResult.error, restoreResult.lessonId || lessonId);
+                return;
+            }
+
+            this.removeCartItemByReference(item);
+
+            const cartAfter = this.cart.map(cartItem => this.buildCartItemLogSnapshot(cartItem));
+            console.log('[Cart] removeFromCart:afterRemoval', {
+                lessonId: restoreResult.lessonId || lessonId,
+                cartAfter
+            });
+
+            this.saveCart();
+        },
+
+        canRemoveCartItem(item) {
+            return Boolean(item);
+        },
+
+        async tryRestoreSpacesForRemoval(item, providedLessonId) {
+            const lessonId = providedLessonId || this.resolveLessonId(item);
+            console.log('[Cart] tryRestoreSpacesForRemoval:start', {
+                lessonId,
+                itemSnapshot: this.buildCartItemLogSnapshot(item)
+            });
+
+            if (!lessonId) {
+                const error = new Error('Unable to determine lesson ID for removal.');
+                console.error('[Cart] Missing lessonId for removal', {
+                    itemSnapshot: this.buildCartItemLogSnapshot(item)
+                });
+                return { success: false, error, lessonId: null };
             }
 
             try {
-                await this.restoreSpacesForItem(item);
+                await this.restoreSpacesForItem(lessonId, item);
+                console.log('[Cart] tryRestoreSpacesForRemoval:success', { lessonId });
+                return { success: true, lessonId };
             } catch (error) {
-                console.error('Failed to restore lesson availability', error);
-                alert(error.message || 'Unable to restore lesson availability. Please try again.');
-                return;
+                console.error('[Cart] tryRestoreSpacesForRemoval:failure', { lessonId, error });
+                return { success: false, error, lessonId };
             }
+        },
 
+        notifyRestoreFailure(error, lessonId) {
+            console.error('[Cart] removeFromCart aborted', { lessonId, error });
+            const baseMessage = 'Unable to remove this lesson because we could not restore its availability.';
+            const lessonInfo = lessonId ? ` (lessonId: ${lessonId})` : '';
+            const reason = error && error.message ? ` Reason: ${error.message}` : '';
+            alert(`${baseMessage}${lessonInfo}${reason}`);
+        },
+
+        removeCartItemByReference(item) {
             const index = this.cart.indexOf(item);
             if (index > -1) {
                 this.cart.splice(index, 1);
-                this.saveCart();
+                console.log('[Cart] removeCartItemByReference: removed item at index', index);
+            } else {
+                console.warn('[Cart] removeCartItemByReference: item not found in cart', this.buildCartItemLogSnapshot(item));
             }
         },
         
         // SECTION 4B: CART PERSISTENCE
         saveCart() {
-            const sanitizedCart = this.cart.map(item => ({
-                id: item.id,
-                backendId: item.backendId || item.id,
-                name: item.name,
-                Location: item.Location,
-                price: item.price,
-                priceValue: item.priceValue,
-                image: item.image,
-                cartQuantity: item.cartQuantity
-            }));
+            const sanitizedCart = this.buildCartStoragePayload();
+            console.log('[Cart] saveCart:payload', sanitizedCart);
             localStorage.setItem('classCart', JSON.stringify(sanitizedCart));
+        },
+
+        buildCartStoragePayload() {
+            return this.cart.map(item => {
+                const normalizedLessonId = normalizeLessonIdValue(item && (item.backendId || item.id || item._id));
+                return {
+                    id: normalizedLessonId,
+                    backendId: normalizedLessonId,
+                    name: item.name,
+                    Location: item.Location,
+                    price: item.price,
+                    priceValue: item.priceValue,
+                    image: item.image,
+                    cartQuantity: item.cartQuantity
+                };
+            });
+        },
+
+        buildCartItemLogSnapshot(item) {
+            if (!item) {
+                return null;
+            }
+            return {
+                id: item.id || null,
+                backendId: item.backendId || null,
+                cartQuantity: typeof item.cartQuantity === 'number' ? item.cartQuantity : Number(item.cartQuantity) || 0,
+                name: item.name || ''
+            };
         },
         
         // SECTION 4C: LOAD CART FROM STORAGE
         loadCart() {
-            const savedCart = localStorage.getItem('classCart');
+            const savedCart = this.getSavedCart();
             if (!savedCart) {
                 return;
             }
 
-            try {
-                const parsedCart = JSON.parse(savedCart);
-                if (!Array.isArray(parsedCart)) {
-                    return;
-                }
-
-                this.cart = parsedCart.map(item => ({
-                    ...item,
-                    backendId: item.backendId || item.id,
-                    cartQuantity: item.cartQuantity || 1
-                }));
-            } catch (error) {
-                console.error('Failed to load cart from storage', error);
+            const parsedCart = this.parseSavedCart(savedCart);
+            if (!Array.isArray(parsedCart)) {
+                return;
             }
+
+            this.cart = parsedCart.map(item => this.decorateCartItem(item));
+        },
+
+        getSavedCart() {
+            return localStorage.getItem('classCart');
+        },
+
+        parseSavedCart(savedCart) {
+            try {
+                return JSON.parse(savedCart);
+            } catch (error) {
+                console.error('[Cart] Failed to load cart from storage', error);
+                return null;
+            }
+        },
+
+        decorateCartItem(item) {
+            const normalizedLessonId = normalizeLessonIdValue(item && (item.backendId || item.id || item._id));
+            return {
+                ...item,
+                id: normalizedLessonId,
+                backendId: normalizedLessonId,
+                cartQuantity: item.cartQuantity || 1
+            };
         },
         
         // SECTION 4D: NAVIGATION TO PRODUCTS PAGE
@@ -165,35 +292,42 @@ new Vue({
         
         // SECTION 4F: CHECKOUT FORM VALIDATION
         validateCheckoutForm() {
-            this.validationErrors = {};
-            let isValid = true;
+            this.resetValidationState();
             const nameRegex = /^[A-Za-z\s]+$/;
-            
-            if (!this.checkoutForm.firstName.trim()) {
-                this.validationErrors.firstName = 'First name is required';
-                isValid = false;
-            } else if (!nameRegex.test(this.checkoutForm.firstName.trim())) {
-                this.validationErrors.firstName = 'First name can contain letters and spaces only';
-                isValid = false;
-            }
+            const firstValid = this.validateNameField('firstName', 'First name', nameRegex);
+            const lastValid = this.validateNameField('lastName', 'Last name', nameRegex);
+            const phoneValid = this.validatePhoneField();
+            return firstValid && lastValid && phoneValid;
+        },
 
-            if (!this.checkoutForm.lastName.trim()) {
-                this.validationErrors.lastName = 'Last name is required';
-                isValid = false;
-            } else if (!nameRegex.test(this.checkoutForm.lastName.trim())) {
-                this.validationErrors.lastName = 'Last name can contain letters and spaces only';
-                isValid = false;
+        resetValidationState() {
+            this.validationErrors = {};
+        },
+
+        validateNameField(fieldKey, label, nameRegex) {
+            const value = this.checkoutForm[fieldKey].trim();
+            if (!value) {
+                this.validationErrors[fieldKey] = `${label} is required`;
+                return false;
             }
-            
-            if (!this.checkoutForm.phone.trim()) {
+            if (!nameRegex.test(value)) {
+                this.validationErrors[fieldKey] = `${label} can contain letters and spaces only`;
+                return false;
+            }
+            return true;
+        },
+
+        validatePhoneField() {
+            const value = this.checkoutForm.phone.trim();
+            if (!value) {
                 this.validationErrors.phone = 'Phone number is required';
-                isValid = false;
-            } else if (!/^\d+$/.test(this.checkoutForm.phone.trim())) {
-                this.validationErrors.phone = 'Phone number must contain digits only';
-                isValid = false;
+                return false;
             }
-            
-            return isValid;
+            if (!/^\d+$/.test(value)) {
+                this.validationErrors.phone = 'Phone number must contain digits only';
+                return false;
+            }
+            return true;
         },
         
         formatPrice(value) {
@@ -214,48 +348,87 @@ new Vue({
                 return;
             }
 
-            if (this.cart.length === 0) {
+            if (!this.hasCartItemsForCheckout()) {
                 alert('Your cart is empty. Add lessons before checking out.');
                 return;
             }
             
-            this.isSubmitting = true;
-            this.checkoutSuccess = false;
-            const customerSnapshot = {
+            const customerSnapshot = this.buildCustomerSnapshot();
+            const displayName = this.buildCustomerDisplayName(customerSnapshot);
+            const orderTotal = this.total;
+            const orderPayload = this.buildOrderPayload(displayName, customerSnapshot.phone);
+
+            this.startCheckoutSubmission();
+            
+            try {
+                await this.createOrder(orderPayload);
+                this.handleCheckoutSuccess(customerSnapshot, displayName, orderTotal);
+            } catch (error) {
+                this.handleCheckoutError(error);
+            } finally {
+                this.finishCheckoutSubmission();
+            }
+        },
+
+        hasCartItemsForCheckout() {
+            return this.cart.length > 0;
+        },
+
+        buildCustomerSnapshot() {
+            return {
                 firstName: this.checkoutForm.firstName.trim(),
                 lastName: this.checkoutForm.lastName.trim(),
                 phone: this.checkoutForm.phone.trim()
             };
-            const displayName = `${customerSnapshot.firstName} ${customerSnapshot.lastName}`.trim();
-            const orderTotal = this.total;
-            const orderPayload = {
+        },
+
+        buildCustomerDisplayName(customerSnapshot) {
+            return `${customerSnapshot.firstName} ${customerSnapshot.lastName}`.trim();
+        },
+
+        buildOrderPayload(displayName, phone) {
+            return {
                 name: displayName,
-                phone: customerSnapshot.phone,
-                lessonIDs: this.cart.map(item => item.backendId || item.id),
+                phone,
+                lessonIDs: this.cart
+                    .map(item => normalizeLessonIdValue(item && (item.backendId || item.id || item._id)))
+                    .filter(id => Boolean(id)),
                 numberOfSpaces: this.cart.reduce((sum, item) => sum + (item.cartQuantity || 0), 0)
             };
-            
-            try {
-                await this.createOrder(orderPayload);
-                
-                this.lastOrderSummary = {
-                    ...customerSnapshot,
-                    displayName,
-                    total: orderTotal
-                };
-                this.checkoutSuccess = true;
-                this.cart = [];
-                this.saveCart();
-                this.checkoutForm = { firstName: '', lastName: '', phone: '' };
-                this.validationErrors = {};
-                
-                alert(`Checkout successful! Thank you for your purchase, ${displayName || 'Customer'}!`);
-            } catch (error) {
-                console.error('Checkout failed', error);
-                alert(error.message || 'Unable to submit your order. Please try again.');
-            } finally {
-                this.isSubmitting = false;
-            }
+        },
+
+        startCheckoutSubmission() {
+            this.isSubmitting = true;
+            this.checkoutSuccess = false;
+        },
+
+        handleCheckoutSuccess(customerSnapshot, displayName, orderTotal) {
+            const normalizedTotal = Number(orderTotal);
+            const safeTotal = Number.isFinite(normalizedTotal) ? normalizedTotal : 0;
+            const finalDisplayName = (displayName || this.buildCustomerDisplayName(customerSnapshot) || 'Customer').trim() || 'Customer';
+
+            this.lastOrderSummary = {
+                ...customerSnapshot,
+                displayName: finalDisplayName,
+                total: safeTotal
+            };
+
+            this.checkoutSuccess = false;
+            this.checkoutSuccess = true;
+            this.cart = [];
+            this.saveCart();
+            this.checkoutForm = { firstName: '', lastName: '', phone: '' };
+            this.validationErrors = {};
+            alert(`Checkout successful! Thank you for your purchase, ${finalDisplayName}!`);
+        },
+
+        handleCheckoutError(error) {
+            console.error('Checkout failed', error);
+            alert(error.message || 'Unable to submit your order. Please try again.');
+        },
+
+        finishCheckoutSubmission() {
+            this.isSubmitting = false;
         },
 
         // SECTION 4H: ORDER CREATION VIA FETCH POST
@@ -299,12 +472,59 @@ new Vue({
             return payload.data;
         },
 
-        async restoreSpacesForItem(item) {
-            const lessonId = item.backendId || item.id;
+        async restoreSpacesForItem(lessonId, item) {
+            console.log('[Cart] restoreSpacesForItem:start', {
+                lessonId,
+                quantityToRestore: item ? item.cartQuantity : null
+            });
             const lesson = await this.fetchLessonById(lessonId);
-            const currentSpaces = typeof lesson.availableSpaces === 'number' ? lesson.availableSpaces : 0;
-            const updatedSpaces = currentSpaces + (item.cartQuantity || 0);
+            const updatedSpaces = this.calculateUpdatedSpacesForRestoration(lesson, item);
+            console.log('[Cart] restoreSpacesForItem:calculated', {
+                lessonId,
+                currentSpaces: lesson ? lesson.availableSpaces : null,
+                updatedSpaces
+            });
             await this.updateLessonSpaces(lessonId, updatedSpaces);
+        },
+
+        resolveLessonId(item) {
+            if (!item) {
+                return null;
+            }
+
+            const candidate =
+                item.backendId ||
+                item.backendID ||
+                item.id ||
+                item._id ||
+                item.lessonId ||
+                item.lessonID ||
+                null;
+
+            const normalized = normalizeLessonIdValue(candidate);
+
+            if (!normalized) {
+                console.warn('[Cart] resolveLessonId: missing identifier on cart item', item);
+                return null;
+            }
+
+            return normalized;
+        },
+
+        calculateUpdatedSpacesForRestoration(lesson, item) {
+            const lessonSpacesValue = Number(lesson && lesson.availableSpaces);
+            const currentSpaces = Number.isFinite(lessonSpacesValue) ? lessonSpacesValue : 0;
+            const quantityValue = Number(item && item.cartQuantity);
+            const quantityToRestore = Number.isFinite(quantityValue) ? quantityValue : 0;
+            const updatedSpaces = currentSpaces + quantityToRestore;
+
+            console.log('[Cart] calculateUpdatedSpacesForRestoration', {
+                currentSpaces,
+                quantityToRestore,
+                updatedSpaces
+            });
+
+            return updatedSpaces;
         }
     },
     

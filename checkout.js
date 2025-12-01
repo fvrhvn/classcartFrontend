@@ -70,11 +70,29 @@ new Vue({
         // Uses JSON.parse to convert string back to array
         // This ensures cart persists between page refreshes
         loadCart() {
-            // Get saved cart from localStorage
-            const savedCart = localStorage.getItem('classCart');
-            if (savedCart) {
-                // Convert JSON string back to array
-                this.cart = JSON.parse(savedCart);
+            const savedCart = this.getSavedCart();
+            if (!savedCart) {
+                return;
+            }
+
+            const parsedCart = this.parseSavedCart(savedCart);
+            if (!parsedCart) {
+                return;
+            }
+
+            this.cart = parsedCart;
+        },
+
+        getSavedCart() {
+            return localStorage.getItem('classCart');
+        },
+
+        parseSavedCart(savedCart) {
+            try {
+                return JSON.parse(savedCart);
+            } catch (error) {
+                console.error('Failed to parse saved cart', error);
+                return null;
             }
         },
         
@@ -94,43 +112,44 @@ new Vue({
         // Shows order confirmation and clears cart
         // This is the main checkout processing logic
         completeOrder() {
-            // SECTION 4C1: FORM VALIDATION
-            // This section handles: Checking if all required fields are filled
-            // Validates each required field in checkoutForm
-            // Shows alert if any field is missing
-            if (!this.checkoutForm.name || 
-                !this.checkoutForm.email || 
-                !this.checkoutForm.phone || 
-                !this.checkoutForm.address || 
-                !this.checkoutForm.payment) {
+            if (!this.areAllCheckoutFieldsFilled()) {
                 alert('Please fill in all required fields');
-                return; // Stop execution if validation fails
+                return;
             }
-            
-            // SECTION 4C2: CART VALIDATION
-            // This section handles: Checking if cart has items
-            // Prevents checkout with empty cart
-            // Redirects to products page if cart is empty
-            if (this.cart.length === 0) {
+
+            if (!this.hasItemsInCart()) {
                 alert('Your cart is empty. Please add some items first.');
                 window.location.href = 'index.html';
-                return; // Stop execution if cart is empty
+                return;
             }
-            
-            // SECTION 4C3: ORDER CONFIRMATION
-            // This section handles: Showing order confirmation details
-            // Displays customer info, total, and payment method
-            // Uses template literals for clean string formatting
-            alert('Order completed successfully!\n\n' +
-                  'Customer: ' + this.checkoutForm.name + '\n' +
-                  'Email: ' + this.checkoutForm.email + '\n' +
-                  'Total: $' + this.total + '\n' +
-                  'Payment: ' + this.checkoutForm.payment);
-            
-            // SECTION 4C4: CART CLEARING AND REDIRECT
-            // This section handles: Clearing cart and redirecting
-            // Removes cart from localStorage (order is complete)
-            // Redirects to main products page
+
+            alert(this.buildOrderConfirmationMessage());
+            this.finalizeOrderAndRedirect();
+        },
+
+        areAllCheckoutFieldsFilled() {
+            return Boolean(
+                this.checkoutForm.name &&
+                this.checkoutForm.email &&
+                this.checkoutForm.phone &&
+                this.checkoutForm.address &&
+                this.checkoutForm.payment
+            );
+        },
+
+        hasItemsInCart() {
+            return this.cart.length > 0;
+        },
+
+        buildOrderConfirmationMessage() {
+            return 'Order completed successfully!\n\n' +
+                'Customer: ' + this.checkoutForm.name + '\n' +
+                'Email: ' + this.checkoutForm.email + '\n' +
+                'Total: $' + this.total + '\n' +
+                'Payment: ' + this.checkoutForm.payment;
+        },
+
+        finalizeOrderAndRedirect() {
             localStorage.removeItem('classCart');
             window.location.href = 'index.html';
         }

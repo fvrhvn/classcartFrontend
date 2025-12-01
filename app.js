@@ -3,7 +3,41 @@
 // Uses Vue 2 Options API (not Composition API)
 // Demonstrates core Vue 2 features: data, computed, methods
 
-const API_BASE_URL = "http://localhost:3000"
+const API_BASE_URL = "http://localhost:3000";
+
+function normalizeLessonIdValue(rawId) {
+    if (rawId === undefined || rawId === null) {
+        return '';
+    }
+
+    if (typeof rawId === 'string') {
+        return rawId.trim();
+    }
+
+    if (typeof rawId === 'number') {
+        return String(rawId);
+    }
+
+    if (typeof rawId === 'object') {
+        if (typeof rawId.$oid === 'string') {
+            return rawId.$oid;
+        }
+        if (rawId._id !== undefined) {
+            return normalizeLessonIdValue(rawId._id);
+        }
+        if (typeof rawId.toHexString === 'function') {
+            return rawId.toHexString();
+        }
+        if (typeof rawId.toString === 'function') {
+            const objectString = rawId.toString();
+            if (objectString && objectString !== '[object Object]') {
+                return objectString;
+            }
+        }
+    }
+
+    return String(rawId);
+}
 
 new Vue({
     // SECTION 1A: VUE INSTANCE MOUNTING
@@ -132,40 +166,63 @@ new Vue({
         // SECTION 4A: BACKEND LESSON FETCHING
         // Uses fetch() to load lessons from Express + MongoDB
         async fetchLessons() {
-            this.isLoadingLessons = true;
-            this.apiError = '';
+            this.startLessonsFetch();
             try {
-                const response = await fetch(`${this.apiBaseUrl}/lessons`);
-                if (!response.ok) {
-                    throw new Error('Unable to load lessons. Please check the API server.');
-                }
-                const payload = await response.json();
-                if (!payload.success) {
-                    throw new Error(payload.message || 'Unable to load lessons.');
-                }
-
-                const lessons = Array.isArray(payload.data) ? payload.data : [];
-                this.products = lessons.map(lesson => ({
-                    id: lesson._id,
-                    backendId: lesson._id,
-                    name: lesson.subject,
-                    Location: lesson.location,
-                    image: this.buildImagePath(lesson.image),
-                    price: this.formatPrice(lesson.price),
-                    priceValue: typeof lesson.price === 'number' ? lesson.price : parseFloat(lesson.price),
-                    spaces: typeof lesson.availableSpaces === 'number' ? lesson.availableSpaces : 0,
-                    quantity: 1,
-                    inCart: false,
-                    description: lesson.description || ''
-                }));
-
+                const lessons = await this.requestLessonsFromServer();
+                this.products = this.normalizeLessons(lessons);
                 this.loadCart();
             } catch (error) {
-                console.error('Failed to fetch lessons', error);
-                this.apiError = error.message || 'Unable to load lessons.';
+                this.handleLessonsFetchError(error);
             } finally {
-                this.isLoadingLessons = false;
+                this.finishLessonsFetch();
             }
+        },
+
+        startLessonsFetch() {
+            this.isLoadingLessons = true;
+            this.apiError = '';
+        },
+
+        async requestLessonsFromServer() {
+            const response = await fetch(`${this.apiBaseUrl}/lessons`);
+            if (!response.ok) {
+                throw new Error('Unable to load lessons. Please check the API server.');
+            }
+            const payload = await response.json();
+            if (!payload.success) {
+                throw new Error(payload.message || 'Unable to load lessons.');
+            }
+            return Array.isArray(payload.data) ? payload.data : [];
+        },
+
+        normalizeLessons(lessons) {
+            return lessons.map(lesson => this.createProductFromLesson(lesson));
+        },
+
+        createProductFromLesson(lesson) {
+            const normalizedId = normalizeLessonIdValue(lesson && lesson._id);
+            return {
+                id: normalizedId,
+                backendId: normalizedId,
+                name: lesson.subject,
+                Location: lesson.location,
+                image: this.buildImagePath(lesson.image),
+                price: this.formatPrice(lesson.price),
+                priceValue: typeof lesson.price === 'number' ? lesson.price : parseFloat(lesson.price),
+                spaces: typeof lesson.availableSpaces === 'number' ? lesson.availableSpaces : 0,
+                quantity: 1,
+                inCart: false,
+                description: lesson.description || ''
+            };
+        },
+
+        handleLessonsFetchError(error) {
+            console.error('Failed to fetch lessons', error);
+            this.apiError = error.message || 'Unable to load lessons.';
+        },
+
+        finishLessonsFetch() {
+            this.isLoadingLessons = false;
         },
 
         // SECTION 4B: UI HELPERS
@@ -211,38 +268,96 @@ new Vue({
 
         // SECTION 4D: ADD TO CART FUNCTIONALITY (WITH PUT)
         async addToCart(product) {
-            if (!product || product.quantity <= 0 || product.quantity > product.spaces) {
+            if (!this.canAddProductToCart(product)) {
                 return;
             }
 
             const requestedQuantity = product.quantity;
-            const newSpaces = product.spaces - requestedQuantity;
+            const newSpaces = this.calculateReducedSpaces(product, requestedQuantity);
+            const lessonId = this.resolveLessonId(product);
 
-            try {
-                await this.updateLessonSpacesOnServer(product.backendId || product.id, newSpaces);
-            } catch (error) {
-                console.error('Failed to reserve lesson spaces', error);
-                alert('Unable to reserve spaces. Please try again.');
+            const updated = await this.tryUpdateSpaces(lessonId, newSpaces, {
+                log: 'Failed to reserve lesson spaces',
+                alert: 'Unable to reserve spaces. Please try again.'
+            });
+
+            if (!updated) {
                 return;
             }
 
-            const existingItem = this.cart.find(item => item.id === product.id);
-            if (existingItem) {
-                existingItem.cartQuantity += requestedQuantity;
-            } else {
-                this.cart.push({
-                    id: product.id,
-                    backendId: product.backendId || product.id,
-                    name: product.name,
-                    Location: product.Location,
-                    price: product.price,
-                    priceValue: product.priceValue,
-                    image: product.image,
-                    cartQuantity: requestedQuantity
-                });
-                product.inCart = true;
+            this.upsertCartItem(product, requestedQuantity);
+            this.finalizeAddToCart(product, newSpaces);
+        },
+
+        canAddProductToCart(product) {
+            return product && product.quantity > 0 && product.quantity <= product.spaces;
+        },
+
+        calculateReducedSpaces(product, requestedQuantity) {
+            return product.spaces - requestedQuantity;
+        },
+
+        resolveLessonId(item) {
+            if (!item) {
+                return '';
             }
 
+            const candidate =
+                item.backendId ||
+                item.id ||
+                item._id ||
+                item.lessonId ||
+                item.lessonID ||
+                null;
+
+            return normalizeLessonIdValue(candidate);
+        },
+
+        async tryUpdateSpaces(lessonId, availableSpaces, messages) {
+            try {
+                await this.updateLessonSpacesOnServer(lessonId, availableSpaces);
+                return true;
+            } catch (error) {
+                console.error(messages.log, error);
+                alert(messages.alert);
+                return false;
+            }
+        },
+
+        upsertCartItem(product, requestedQuantity) {
+            const normalizedLessonId = this.resolveLessonId(product);
+            if (!normalizedLessonId) {
+                console.warn('upsertCartItem: Unable to resolve lesson ID for product', product);
+                return;
+            }
+
+            const existingItem = this.cart.find(item => this.resolveLessonId(item) === normalizedLessonId);
+            if (existingItem) {
+                existingItem.cartQuantity += requestedQuantity;
+                return;
+            }
+
+            this.cart.push({
+                id: normalizedLessonId,
+                backendId: normalizedLessonId,
+                name: product.name,
+                Location: product.Location,
+                price: product.price,
+                priceValue: product.priceValue,
+                image: product.image,
+                cartQuantity: requestedQuantity
+            });
+            product.inCart = true;
+            product.id = normalizedLessonId;
+            product.backendId = normalizedLessonId;
+        },
+
+        finalizeAddToCart(product, newSpaces) {
+            const normalizedLessonId = this.resolveLessonId(product);
+            if (normalizedLessonId) {
+                product.id = normalizedLessonId;
+                product.backendId = normalizedLessonId;
+            }
             product.spaces = newSpaces;
             product.quantity = 1;
             this.saveCart();
@@ -254,28 +369,120 @@ new Vue({
                 return;
             }
 
-            const lessonId = item.backendId || item.id;
-            const cartIndex = this.cart.findIndex(cartItem => cartItem.id === item.id);
-            const product = this.products.find(p => p.id === item.id);
-            const restoredSpaces = product ? product.spaces + (item.cartQuantity || 0) : (item.cartQuantity || 0);
+            const lessonId = this.resolveLessonId(item);
+            const product = this.products.find(p => this.resolveLessonId(p) === lessonId);
+            const restoredSpaces = this.calculateRestoredSpaces(product, item);
 
-            try {
-                await this.updateLessonSpacesOnServer(lessonId, restoredSpaces);
-            } catch (error) {
-                console.error('Failed to restore lesson spaces', error);
-                alert('Unable to restore lesson availability. Please try again.');
+            const updated = await this.tryUpdateSpaces(lessonId, restoredSpaces, {
+                log: 'Failed to restore lesson spaces',
+                alert: 'Unable to restore lesson availability. Please try again.'
+            });
+
+            if (!updated) {
                 return;
             }
 
-            if (product) {
-                product.spaces = restoredSpaces;
-                product.inCart = false;
+            this.applyRestoredProductState(product, restoredSpaces);
+            this.removeCartItemFromState(lessonId);
+            this.saveCart();
+        },
+
+        calculateRestoredSpaces(product, cartItem) {
+            const normalizedCartId = normalizeLessonIdValue(
+                cartItem
+                    ? (
+                        cartItem.backendId ||
+                        cartItem.id ||
+                        cartItem._id ||
+                        cartItem.lessonId ||
+                        cartItem.lessonID
+                    )
+                    : null
+            );
+
+            this._lastRemovalLessonId = normalizedCartId || null;
+
+            let resolvedProduct = product;
+            if (!resolvedProduct && normalizedCartId) {
+                resolvedProduct = this.products.find(candidate => {
+                    const candidateId = normalizeLessonIdValue(
+                        candidate
+                            ? (
+                                candidate.backendId ||
+                                candidate.id ||
+                                candidate._id
+                            )
+                            : null
+                    );
+                    return candidateId === normalizedCartId;
+                });
             }
 
-            if (cartIndex > -1) {
-                this.cart.splice(cartIndex, 1);
+            const quantityValue = Number(cartItem && cartItem.cartQuantity);
+            const quantity = Number.isFinite(quantityValue) ? quantityValue : 0;
+
+            const spacesValue = Number(resolvedProduct && resolvedProduct.spaces);
+            const spaces = Number.isFinite(spacesValue) ? spacesValue : 0;
+
+            return spaces + quantity;
+        },
+
+        applyRestoredProductState(product, restoredSpaces) {
+            let targetProduct = product || null;
+            let normalizedLessonId = targetProduct
+                ? normalizeLessonIdValue(targetProduct.id || targetProduct.backendId || targetProduct._id)
+                : '';
+
+            if (!normalizedLessonId) {
+                normalizedLessonId = this._lastRemovalLessonId || '';
             }
-            this.saveCart();
+
+            if (!targetProduct && normalizedLessonId) {
+                targetProduct = this.products.find(candidate => {
+                    const candidateId = normalizeLessonIdValue(
+                        candidate
+                            ? (
+                                candidate.backendId ||
+                                candidate.id ||
+                                candidate._id
+                            )
+                            : null
+                    );
+                    return candidateId === normalizedLessonId;
+                });
+            }
+
+            if (!targetProduct) {
+                this._lastRemovalLessonId = null;
+                return;
+            }
+
+            targetProduct.spaces = restoredSpaces;
+
+            const stillInCart = this.cart.some(cartItem => {
+                const cartId = normalizeLessonIdValue(cartItem.id || cartItem.backendId || cartItem._id);
+                return cartId === normalizedLessonId;
+            });
+
+            targetProduct.inCart = stillInCart;
+
+            if (!stillInCart) {
+                targetProduct.quantity = 1;
+            }
+
+            this._lastRemovalLessonId = null;
+        },
+
+        removeCartItemFromState(itemId) {
+            const normalizedTargetId = normalizeLessonIdValue(itemId);
+            const index = this.cart.findIndex(cartItem => {
+                const cartId = normalizeLessonIdValue(cartItem.id || cartItem.backendId || cartItem._id);
+                return cartId === normalizedTargetId;
+            });
+
+            if (index > -1) {
+                this.cart.splice(index, 1);
+            }
         },
 
         // SECTION 4F: CART PAGE NAVIGATION
@@ -289,48 +496,78 @@ new Vue({
 
         // SECTION 4G: CART PERSISTENCE
         saveCart() {
-            const sanitizedCart = this.cart.map(item => ({
-                id: item.id,
-                backendId: item.backendId || item.id,
+            const sanitizedCart = this.buildCartStoragePayload();
+            localStorage.setItem('classCart', JSON.stringify(sanitizedCart));
+        },
+
+        buildCartStoragePayload() {
+            return this.cart.map(item => {
+                const normalizedLessonId = this.resolveLessonId(item);
+                return {
+                    id: normalizedLessonId,
+                    backendId: normalizedLessonId,
+                    name: item.name,
+                    Location: item.Location,
+                    price: item.price,
+                    priceValue: item.priceValue,
+                    image: item.image,
+                    cartQuantity: item.cartQuantity
+                };
+            });
+        },
+
+        // SECTION 4H: LOAD CART FROM STORAGE
+        loadCart() {
+            const savedCart = this.getSavedCart();
+            if (!savedCart) {
+                return;
+            }
+
+            const parsedCart = this.parseSavedCart(savedCart);
+            if (!Array.isArray(parsedCart)) {
+                return;
+            }
+
+            this.cart = parsedCart.map(item => this.decorateCartItem(item));
+            this.flagProductsInCart();
+        },
+
+        getSavedCart() {
+            return localStorage.getItem('classCart');
+        },
+
+        parseSavedCart(savedCart) {
+            try {
+                return JSON.parse(savedCart);
+            } catch (error) {
+                console.error('Failed to load cart from storage', error);
+                return null;
+            }
+        },
+
+        decorateCartItem(item) {
+            const normalizedLessonId = normalizeLessonIdValue(item && (item.backendId || item.id || item._id));
+            return {
+                id: normalizedLessonId,
+                backendId: normalizedLessonId,
                 name: item.name,
                 Location: item.Location,
                 price: item.price,
                 priceValue: item.priceValue,
                 image: item.image,
-                cartQuantity: item.cartQuantity
-            }));
-            localStorage.setItem('classCart', JSON.stringify(sanitizedCart));
+                cartQuantity: item.cartQuantity || 1
+            };
         },
 
-        // SECTION 4H: LOAD CART FROM STORAGE
-        loadCart() {
-            const savedCart = localStorage.getItem('classCart');
-            if (!savedCart) {
-                return;
-            }
-
-            try {
-                const parsedCart = JSON.parse(savedCart);
-                if (!Array.isArray(parsedCart)) {
-                    return;
+        flagProductsInCart() {
+            this.cart.forEach(cartItem => {
+                const cartItemId = this.resolveLessonId(cartItem);
+                const product = this.products.find(p => this.resolveLessonId(p) === cartItemId);
+                if (product) {
+                    product.inCart = true;
+                    product.quantity = 1;
                 }
-
-                this.cart = parsedCart.map(item => ({
-                    ...item,
-                    backendId: item.backendId || item.id,
-                    cartQuantity: item.cartQuantity || 1
-                }));
-
-                this.cart.forEach(cartItem => {
-                    const product = this.products.find(p => p.id === cartItem.id);
-                    if (product) {
-                        product.inCart = true;
-                        product.quantity = 1;
-                    }
-                });
-            } catch (error) {
-                console.error('Failed to load cart from storage', error);
-            }
+            });
         }
     }
     
