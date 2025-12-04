@@ -39,7 +39,7 @@ new Vue({
 
     async fetchLessons() {
       try {
-        const res = await fetch("http://localhost:5000/api/classes");
+        const res = await fetch("https://classcartserver.onrender.com/api/classes");
         const data = await res.json();
         this.lessons = data;
       } catch (err) {
@@ -49,7 +49,7 @@ new Vue({
 
     async fetchCart() {
       try {
-        const res = await fetch("http://localhost:5000/api/cart");
+        const res = await fetch("https://classcartserver.onrender.com/api/cart");
         const data = await res.json();
 
         const grouped = {};
@@ -71,7 +71,7 @@ new Vue({
       if (lesson.spaces <= 0) return;
       lesson.spaces--;
 
-      fetch("http://localhost:5000/api/cart/add", {
+      fetch("https://classcartserver.onrender.com/api/cart/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ classId: lesson.id })
@@ -95,7 +95,7 @@ new Vue({
       }
 
       try {
-        const res = await fetch(`http://localhost:5000/api/cart/decrease/${class_id}`, {
+        const res = await fetch(`https://classcartserver.onrender.com/api/cart/decrease/${class_id}`, {
           method: "PUT"
         });
         await res.json();
@@ -120,7 +120,7 @@ new Vue({
 
       try {
         const res = await fetch(
-          `http://localhost:5000/api/classes/search?q=${encodeURIComponent(this.searchQuery)}`
+          `https://classcartserver.onrender.com/api/classes/search?q=${encodeURIComponent(this.searchQuery)}`
         );
         const data = await res.json();
         this.lessons = data;
@@ -155,7 +155,7 @@ new Vue({
       const lessonIDs = this.cart.map(item => item.classId);
       const quantities = this.cart.map(item => item.quantity);
 
-      fetch("http://localhost:5000/api/checkout", {
+      fetch("https://classcartserver.onrender.com/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
